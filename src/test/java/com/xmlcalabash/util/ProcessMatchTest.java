@@ -33,44 +33,38 @@ import net.sf.saxon.trans.XPathException;
 import java.io.StringReader;
 
 /**
- * Created by IntelliJ IDEA.
- * User: ndw
- * Date: Apr 21, 2008
- * Time: 1:11:16 PM
- * To change this template use File | Settings | File Templates.
+ * Created by IntelliJ IDEA. User: ndw Date: Apr 21, 2008 Time: 1:11:16 PM To
+ * change this template use File | Settings | File Templates.
  */
 public class ProcessMatchTest extends TestCase {
-    Processor saxon = new Processor(false);
+	Processor saxon = new Processor(false);
 
-    public ProcessMatchTest(String testName) {
-        super(testName);
-    }
-    
-    protected void setUp() throws Exception {
-        super.setUp();
-    }
+	public ProcessMatchTest(String testName) {
+		super(testName);
+	}
 
-    protected void tearDown() throws Exception {
-        super.tearDown();
-    }
+	protected void setUp() throws Exception {
+		super.setUp();
+	}
 
-    public void testMatch1() throws SaxonApiException, XPathException {
-        //String uri = "file:///projects/src/runtime/testdocs/simple.xml";
-        String xml = "<doc>\n" +
-                "<p>Some document</p>\n" +
-                "<p class=\"del\">Some deleted content</p>\n" +
-                "<p>Some more content</p>\n" +
-                "</doc>";
+	protected void tearDown() throws Exception {
+		super.tearDown();
+	}
 
-        SAXSource source = new SAXSource(new InputSource(new StringReader(xml)));
-        // No resolver here, there isn't one.
-        DocumentBuilder builder = saxon.newDocumentBuilder();
-        XdmNode doc = builder.build(source);
-        assertNotNull(doc);
+	public void testMatch1() throws SaxonApiException, XPathException {
+		// String uri = "file:///projects/src/runtime/testdocs/simple.xml";
+		String xml = "<doc>\n" + "<p>Some document</p>\n" + "<p class=\"del\">Some deleted content</p>\n"
+				+ "<p>Some more content</p>\n" + "</doc>";
 
-        ProcessMatchingNodes pmn = new DebugProcessMatchingNodes();
+		SAXSource source = new SAXSource(new InputSource(new StringReader(xml)));
+		// No resolver here, there isn't one.
+		DocumentBuilder builder = saxon.newDocumentBuilder();
+		XdmNode doc = builder.build(source);
+		assertNotNull(doc);
 
-        //ProcessMatch matcher = new ProcessMatch(saxon, pmn);
-        //matcher.match(doc, new RuntimeValue("p[@class='del']", null)));
-    }
+		// ProcessMatchingNodes pmn = new DebugProcessMatchingNodes();
+
+		// ProcessMatch matcher = new ProcessMatch(saxon, pmn);
+		// matcher.match(doc, new RuntimeValue("p[@class='del']", null)));
+	}
 }
