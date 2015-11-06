@@ -85,14 +85,12 @@ public class UserArgs {
     protected StepArgs lastStep = null;
     protected boolean extensionValues = false;
     protected boolean allowXPointerOnText = false;
-    protected boolean allowTextResults = false;
     protected boolean useXslt10 = false;
     protected boolean htmlSerializer = false;
     protected boolean transparentJSON = false;
     protected String jsonFlavor = null;
     protected Integer piperackPort = null;
     protected Integer piperackExpires = null;
-    protected Map<String,String> serParams = new HashMap<String, String> ();
 
     public void setDebug(boolean debug) {
         this.debug = debug;
@@ -406,10 +404,6 @@ public class UserArgs {
         this.allowXPointerOnText = allowXPointerOnText;
     }
 
-    public void setAllowTextResults(boolean allowTextResults) {
-        this.allowTextResults = allowTextResults;
-    }
-
     public void setUseXslt10(boolean useXslt10) {
         this.useXslt10 = useXslt10;
     }
@@ -426,46 +420,6 @@ public class UserArgs {
         this.jsonFlavor = jsonFlavor;
         if ((jsonFlavor != null) && !knownFlavor(jsonFlavor)) {
             throw new XProcException("Unknown JSON flavor: '" + jsonFlavor + "'.");
-        }
-    }
-
-    public void setSerializationParameter(String port, String param, String value) {
-        if (port == null) {
-            port = "*";
-        }
-        if (param.equals("byte-order-mark")
-                || param.equals("escape-uri-attributes")
-                || param.equals("include-content-type")
-                || param.equals("indent")
-                || param.equals("omit-xml-declaration")
-                || param.equals("undeclare-prefixes")
-                || param.equals("method")
-                || param.equals("doctype-public")
-                || param.equals("doctype-system")
-                || param.equals("encoding")
-                || param.equals("media-type")
-                || param.equals("normalization-form")
-                || param.equals("standalone")
-                || param.equals("version")) {
-            serParams.put(port + ":" + param, value);
-        } else {
-            throw new XProcException("Unsupported or unrecognized serialization parameter: " + param);
-        }
-    }
-
-    public String getSerializationParameter(String port, String param) {
-        if (serParams.containsKey(port + ":" + param)) {
-            return serParams.get(port + ":" + param);
-        } else {
-            return null;
-        }
-    }
-
-    public String getSerializationParameter(String param) {
-        if (serParams.containsKey("*:" + param)) {
-            return serParams.get("*:" + param);
-        } else {
-            return null;
         }
     }
 
@@ -602,7 +556,6 @@ public class UserArgs {
         if ((jsonFlavor != null) && !knownFlavor(jsonFlavor)) {
             config.jsonFlavor = jsonFlavor;
         }
-        config.allowTextResults |= allowTextResults;
         config.useXslt10 |= useXslt10;
         config.htmlSerializer |= htmlSerializer;
 
@@ -640,17 +593,13 @@ public class UserArgs {
                 Input library = libraries.get(0);
                 if (library.getKind() == INPUT_STREAM) {
                     InputStream libraryInputStream = library.getInputStream();
-                    FileOutputStream fileOutputStream = null;
-                    try {
-                        File tempLibrary = createTempFile("calabashLibrary", null);
-                        tempLibrary.deleteOnExit();
-                        fileOutputStream = new FileOutputStream(tempLibrary);
-                        fileOutputStream.getChannel().transferFrom(newChannel(libraryInputStream), 0, MAX_VALUE);
-                        libraries.set(0, new Input(tempLibrary.toURI().toASCIIString()));
-                    } finally {
-                        Closer.close(fileOutputStream);
-                        libraryInputStream.close();
-                    }
+                    File tempLibrary = createTempFile("calabashLibrary", null);
+                    tempLibrary.deleteOnExit();
+                    FileOutputStream fileOutputStream = new FileOutputStream(tempLibrary);
+                    fileOutputStream.getChannel().transferFrom(newChannel(libraryInputStream), 0, MAX_VALUE);
+                    fileOutputStream.close();
+                    libraryInputStream.close();
+                    libraries.set(0, new Input(tempLibrary.toURI().toASCIIString()));
                 }
 
                 XLibrary xLibrary = runtime.loadLibrary(libraries.get(0));
@@ -667,6 +616,12 @@ public class UserArgs {
         tree.addStartElement(p_declare_step);
         tree.addAttribute(new QName("version"), "1.0");
         tree.startContent();
+
+        tree.addStartElement(p_input);
+        tree.addAttribute(new QName("port"), "source");
+        tree.addAttribute(new QName("sequence"), "true");
+        tree.startContent();
+        tree.addEndElement();
 
         tree.addStartElement(p_input);
         tree.addAttribute(new QName("port"), "parameters");
@@ -707,21 +662,17 @@ public class UserArgs {
 
                 case INPUT_STREAM:
                     InputStream libraryInputStream = library.getInputStream();
-                    FileOutputStream fileOutputStream = null;
-                    try {
-                        File tempLibrary = createTempFile("calabashLibrary", null);
-                        tempLibrary.deleteOnExit();
-                        fileOutputStream = new FileOutputStream(tempLibrary);
-                        fileOutputStream.getChannel().transferFrom(newChannel(libraryInputStream), 0, MAX_VALUE);
+                    File tempLibrary = createTempFile("calabashLibrary", null);
+                    tempLibrary.deleteOnExit();
+                    FileOutputStream fileOutputStream = new FileOutputStream(tempLibrary);
+                    fileOutputStream.getChannel().transferFrom(newChannel(libraryInputStream), 0, MAX_VALUE);
+                    fileOutputStream.close();
+                    libraryInputStream.close();
 
-                        tree.addStartElement(p_import);
-                        tree.addAttribute(new QName("href"), tempLibrary.toURI().toASCIIString());
-                        tree.startContent();
-                        tree.addEndElement();
-                    } finally {
-                        Closer.close(fileOutputStream);
-                        libraryInputStream.close();
-                    }
+                    tree.addStartElement(p_import);
+                    tree.addAttribute(new QName("href"), tempLibrary.toURI().toASCIIString());
+                    tree.startContent();
+                    tree.addEndElement();
                     break;
 
                 default:
@@ -779,24 +730,20 @@ public class UserArgs {
                                 tree.startContent();
                                 tree.addEndElement();
                             } else {
-                                FileOutputStream fileOutputStream = null;
-                                try {
-                                    File tempInput = createTempFile("calabashInput", null);
-                                    tempInput.deleteOnExit();
-                                    fileOutputStream = new FileOutputStream(tempInput);
-                                    fileOutputStream.getChannel().transferFrom(newChannel(inputStream), 0, MAX_VALUE);
+                                File tempInput = createTempFile("calabashInput", null);
+                                tempInput.deleteOnExit();
+                                FileOutputStream fileOutputStream = new FileOutputStream(tempInput);
+                                fileOutputStream.getChannel().transferFrom(newChannel(inputStream), 0, MAX_VALUE);
+                                fileOutputStream.close();
+                                inputStream.close();
 
-                                    tree.addStartElement(qname);
-                                    tree.addAttribute(new QName("href"), tempInput.toURI().toASCIIString());
-                                    if (input.getType() == DATA) {
-                                        tree.addAttribute(new QName("content-type"), input.getContentType());
-                                    }
-                                    tree.startContent();
-                                    tree.addEndElement();
-                                } finally {
-                                    Closer.close(fileOutputStream);
-                                    inputStream.close();
+                                tree.addStartElement(qname);
+                                tree.addAttribute(new QName("href"), tempInput.toURI().toASCIIString());
+                                if (input.getType() == DATA) {
+                                    tree.addAttribute(new QName("content-type"), input.getContentType());
                                 }
+                                tree.startContent();
+                                tree.addEndElement();
                             }
                             break;
 
@@ -937,9 +884,6 @@ public class UserArgs {
             }
 
             stepName = makeQName(plainStepName);
-            if ("".equals(stepName.getNamespaceURI())) {
-                stepName = new QName("p", "http://www.w3.org/ns/xproc", stepName.getLocalName());
-            }
 
             options.clear();
             for (Entry<String, String> plainOption : plainOptions.entrySet()) {

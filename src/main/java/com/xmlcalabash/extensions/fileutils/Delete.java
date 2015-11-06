@@ -7,7 +7,6 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.xmlcalabash.core.XMLCalabash;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
 
@@ -28,12 +27,6 @@ import com.xmlcalabash.util.TreeWriter;
  * Time: 3:17:23 PM
  * To change this template use File | Settings | File Templates.
  */
-
-@XMLCalabash(
-        name = "pxf:delete",
-        type = "{http://exproc.org/proposed/steps/file}delete " +
-                "{http://xmlcalabash.com/ns/extensions/fileutils}delete")
-
 public class Delete extends DefaultStep {
     private static final QName _href = new QName("href");
     private static final QName _recursive = new QName("recursive");
@@ -124,11 +117,7 @@ public class Delete extends DefaultStep {
             public void list(URI id, String media, long lastModified)
                     throws IOException {
                 String entry = id.toASCIIString();
-                try {
-                    entries.addAll(getAllEntries(entry, entry));
-                } catch (FileNotFoundException e) {
-                    // ignore it, we tried to recurse through a file that wasn't a directory
-                }
+                entries.addAll(getAllEntries(entry, entry));
                 entries.add(entry);
             }
         });

@@ -29,7 +29,6 @@ import java.util.regex.Pattern;
 public class XPointerScheme {
     protected QName schemeName = null;
     protected String schemeData = null;
-    private int readLimit = 0;
     private static final Pattern rangeRE = Pattern.compile("^.*?=(\\d*)?(,(\\d*)?)?$");
     private static final Pattern lengthRE = Pattern.compile("^length=(\\d+)(,.*)?$");
 
@@ -51,8 +50,7 @@ public class XPointerScheme {
         return schemeData;
     }
 
-    public XPointerScheme(QName name, String data, int readLimit) {
-        this.readLimit = readLimit;
+    public XPointerScheme(QName name, String data) {
         schemeName = name;
         schemeData = data;
     }
@@ -108,7 +106,7 @@ public class XPointerScheme {
         return selectedNodes;
     }
 
-    public String selectText(BufferedReader rd, int contentLength) {
+    public String selectText(InputStreamReader stream, int contentLength) {
         String select = textEquivalent();
 
         if (select == null) {
@@ -130,51 +128,53 @@ public class XPointerScheme {
         // md5-value       =  32HEXDIG
 
         String data = "";
+        BufferedReader rd = null;
+
+        rd = new BufferedReader(stream);
+
+        String parts[] = select.split("\\s*;\\s*");
+        for (int pos = 1; pos < parts.length; pos++) {
+            // start at 1 because we want to skip the scheme
+            String check = parts[pos];
+            Matcher matcher = lengthRE.matcher(check);
+            if (contentLength >= 0 && matcher.matches()) {
+                int checklen = Integer.parseInt(matcher.group(1));
+                if (checklen != contentLength) {
+                    throw new IllegalArgumentException("Integrity check failed: " + checklen + " != " + contentLength);
+                }
+            }
+        }
+        select = parts[0];
+
+        select = select.trim();
+
+        sp = -1;
+        ep = Long.MAX_VALUE;
+        cp = 0;
+        lp = 0;
+
+        // FIXME: Isn't there a better way to do this?
+        Matcher matcher = rangeRE.matcher(select);
+        if (matcher.matches()) {
+            String r = matcher.group(1);
+            if (r != null && !"".equals(r)) {
+                sp = Integer.parseInt(r);
+            }
+            r = matcher.group(3);
+            if (r != null && !"".equals(r)) {
+                ep = Integer.parseInt(r);
+            }
+        }
+
+        if (select.startsWith("char=")) {
+            chars = true;
+        } else if (select.startsWith("line=")) {
+            chars = false;
+        } else {
+            throw new XProcException("Unparseable XPointer: " + schemeName + "(" + schemeData + ")");
+        }
+
         try {
-            rd.mark(readLimit);
-
-            String parts[] = select.split("\\s*;\\s*");
-            for (int pos = 1; pos < parts.length; pos++) {
-                // start at 1 because we want to skip the scheme
-                String check = parts[pos];
-                Matcher matcher = lengthRE.matcher(check);
-                if (contentLength >= 0 && matcher.matches()) {
-                    int checklen = Integer.parseInt(matcher.group(1));
-                    if (checklen != contentLength) {
-                        throw new IllegalArgumentException("Integrity check failed: " + checklen + " != " + contentLength);
-                    }
-                }
-            }
-            select = parts[0];
-
-            select = select.trim();
-
-            sp = -1;
-            ep = Long.MAX_VALUE;
-            cp = 0;
-            lp = 0;
-
-            // FIXME: Isn't there a better way to do this?
-            Matcher matcher = rangeRE.matcher(select);
-            if (matcher.matches()) {
-                String r = matcher.group(1);
-                if (r != null && !"".equals(r)) {
-                    sp = Integer.parseInt(r);
-                }
-                r = matcher.group(3);
-                if (r != null && !"".equals(r)) {
-                    ep = Integer.parseInt(r);
-                }
-            }
-
-            if (select.startsWith("char=")) {
-                chars = true;
-            } else if (select.startsWith("line=")) {
-                chars = false;
-            } else {
-                throw new XProcException("Unparseable XPointer: " + schemeName + "(" + schemeData + ")");
-            }
-
             String line;
             while ((line = rd.readLine()) != null) {
                 if (chars) {
@@ -185,13 +185,14 @@ public class XPointerScheme {
             }
         } catch (IOException ioe) {
             throw new XProcException(ioe);
-        } finally {
-            try {
-                rd.reset();
-            } catch (IOException ioe) {
-                throw new XProcException(ioe);
-            }
         }
+
+        try {
+            rd.close();
+        } catch (IOException ioe) {
+            throw new XProcException(ioe);
+        }
+
         return data;
     }
 

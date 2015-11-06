@@ -19,7 +19,6 @@
 
 package com.xmlcalabash.library;
 
-import com.xmlcalabash.core.XMLCalabash;
 import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.io.ReadablePipe;
@@ -45,11 +44,6 @@ import com.xmlcalabash.util.DocumentSequenceIterator;
  *
  * @author ndw
  */
-
-@XMLCalabash(
-        name = "p:split-sequence",
-        type = "{http://www.w3.org/ns/xproc}split-sequence")
-
 public class SplitSequence extends DefaultStep {
     private static final QName _test = new QName("", "test");
     private static final QName _initial_only = new QName("", "initial-only");
@@ -146,7 +140,7 @@ public class SplitSequence extends DefaultStep {
                 // Then evaluate the expression by calling iterate() on the
                 // net.sf.saxon.sxpath.XPathExpression object.
 
-                SequenceIterator results = xexpr.iterate(xdc);
+                SequenceIterator<?> results = xexpr.iterate(xdc);
                 // FIXME: What if the expression returns a sequence?
                 item = results.next();
             } catch (XPathException xe) {

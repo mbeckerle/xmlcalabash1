@@ -1,18 +1,17 @@
 package com.xmlcalabash.extensions;
 
-import com.xmlcalabash.core.XMLCalabash;
-import com.xmlcalabash.core.XProcConstants;
 import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.io.ReadablePipe;
 import com.xmlcalabash.io.WritablePipe;
 import com.xmlcalabash.library.DefaultStep;
 import com.xmlcalabash.runtime.XAtomicStep;
-import com.xmlcalabash.util.AxisNodes;
+import com.xmlcalabash.util.RelevantNodes;
 import com.xmlcalabash.util.TreeWriter;
 import net.sf.saxon.s9api.*;
 
 import java.net.URI;
+import java.net.URISyntaxException;
 
 /**
  * Created by IntelliJ IDEA.
@@ -21,10 +20,6 @@ import java.net.URI;
  * Time: 7:44:07 AM
  * To change this template use File | Settings | File Templates.
  */
-
-@XMLCalabash(
-        name = "pxp:set-base-uri",
-        type = "{http://exproc.org/proposed/steps}set-base-uri")
 
 public class SetBaseURI extends DefaultStep {
     private static final QName _uri = new QName("","uri");
@@ -69,8 +64,8 @@ public class SetBaseURI extends DefaultStep {
         tree = new TreeWriter(runtime);
         tree.startDocument(baseURI);
 
-        for (XdmNode node : new AxisNodes(doc, Axis.CHILD)) {
-            write(node,false);
+        for (XdmNode node : new RelevantNodes(doc, Axis.CHILD, true)) {
+            write(node);
         }
 
         tree.endDocument();
@@ -78,22 +73,10 @@ public class SetBaseURI extends DefaultStep {
         result.write(tree.getResult());
     }
 
-    private void write(XdmNode node, boolean underXmlBase) {
+    private void write(XdmNode node) {
         switch (node.getNodeKind()) {
             case ELEMENT:
-                underXmlBase = underXmlBase || (node.getAttributeValue(XProcConstants.xml_base) != null);
-                if (underXmlBase) {
-                    tree.addStartElement(node);
-                } else {
-                    tree.addStartElement(node, baseURI);
-                }
-                for (XdmNode child : new AxisNodes(node, Axis.ATTRIBUTE)) {
-                    tree.addAttribute(child);
-                }
-                for (XdmNode child : new AxisNodes(node, Axis.CHILD)) {
-                    write(child,underXmlBase);
-                }
-                tree.addEndElement();
+                tree.addStartElement(node, baseURI);
                 break;
             case TEXT:
                 tree.addSubtree(node);

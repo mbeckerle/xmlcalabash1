@@ -1,7 +1,6 @@
 package com.xmlcalabash.runtime;
 
-import com.xmlcalabash.util.AxisNodes;
-import com.xmlcalabash.util.MessageFormatter;
+import com.xmlcalabash.util.RelevantNodes;
 import com.xmlcalabash.util.S9apiUtils;
 import com.xmlcalabash.util.TypeUtils;
 import com.xmlcalabash.core.XProcConstants;
@@ -47,6 +46,8 @@ import net.sf.saxon.s9api.XdmSequenceIterator;
 import net.sf.saxon.s9api.XdmDestination;
 import net.sf.saxon.s9api.SaxonApiUncheckedException;
 
+import java.util.Calendar;
+import java.util.GregorianCalendar;
 import java.util.Vector;
 import java.util.Hashtable;
 import java.util.Iterator;
@@ -114,7 +115,6 @@ public class XAtomicStep extends XStep {
             }
 
             pipe = start.getBinding(pnbinding.getStep(), pnbinding.getPort());
-            pipe.setNames(pnbinding.getStep(), pnbinding.getPort());
         } else if (binding.getBindingType() == Binding.INLINE_BINDING) {
             InlineBinding ibinding = (InlineBinding) binding;
             pipe = new ReadableInline(runtime, ibinding.nodes(), ibinding.getExcludedNamespaces());
@@ -156,14 +156,12 @@ public class XAtomicStep extends XStep {
                     pipe.canReadSequence(input.getSequence());
 
                     if (input.getSelect() != null) {
-                        logger.trace(MessageFormatter.nodeMessage(step.getNode(),
-                                step.getName() + " selects from " + pipe + " for " + port));
+                        finest(step.getNode(), step.getName() + " selects from " + pipe + " for " + port);
                         pipe = new XSelect(runtime, this, pipe, input.getSelect(), input.getNode());
                     }
 
                     readers.add(pipe);
-                    logger.trace(MessageFormatter.nodeMessage(step.getNode(),
-                            step.getName() + " reads from " + pipe + " for " + port));
+                    finest(step.getNode(), step.getName() + " reads from " + pipe + " for " + port);
                 }
 
                 XInput xinput = new XInput(runtime, input);
@@ -183,7 +181,7 @@ public class XAtomicStep extends XStep {
             WritablePipe wpipe = xoutput.getWriter();
             wpipe.canWriteSequence(output.getSequence());
             outputs.put(port, wpipe);
-            logger.trace(MessageFormatter.nodeMessage(step.getNode(), step.getName() + " writes to " + wpipe + " for " + port));
+            finest(step.getNode(), step.getName() + " writes to " + wpipe + " for " + port);
         }
 
         parent.addStep(this);
@@ -244,7 +242,7 @@ public class XAtomicStep extends XStep {
 
                             if (XProcConstants.c_param_set.equals(docelem.getNodeName())) {
                                 // Check the attributes...
-                                for (XdmNode attr : new AxisNodes(docelem, Axis.ATTRIBUTE)) {
+                                for (XdmNode attr : new RelevantNodes(runtime, docelem, Axis.ATTRIBUTE)) {
                                     QName aname = attr.getNodeName();
                                     if ("".equals(aname.getNamespaceURI())
                                         || XProcConstants.NS_XPROC.equals(aname.getNamespaceURI())) {
@@ -252,7 +250,7 @@ public class XAtomicStep extends XStep {
                                     }
                                 }
 
-                                for (XdmNode child : new AxisNodes(runtime, docelem, Axis.CHILD, AxisNodes.SIGNIFICANT)) {
+                                for (XdmNode child : new RelevantNodes(runtime, docelem, Axis.CHILD)) {
                                     if (child.getNodeKind() == XdmNodeKind.ELEMENT) {
                                         if (!child.getNodeName().equals(XProcConstants.c_param)) {
                                             throw XProcException.dynamicError(18, step.getNode(), "Element not allowed: " + child.getNodeName());
@@ -345,7 +343,6 @@ public class XAtomicStep extends XStep {
         // Calculate all the options
         DeclareStep decl = step.getDeclaration();
         inScopeOptions = parent.getInScopeOptions();
-        Hashtable<QName,RuntimeValue> futureOptions = new Hashtable<QName,RuntimeValue> ();
         for (QName name : step.getOptions()) {
             Option option = step.getOption(name);
             RuntimeValue value = computeValue(option);
@@ -363,11 +360,7 @@ public class XAtomicStep extends XStep {
             }
 
             xstep.setOption(name, value);
-            futureOptions.put(name, value);
-        }
-
-        for (QName opt : futureOptions.keySet()) {
-            inScopeOptions.put(opt, futureOptions.get(opt));
+            inScopeOptions.put(name, value);
         }
 
         xstep.reset();
@@ -408,13 +401,11 @@ public class XAtomicStep extends XStep {
                 throw XProcException.dynamicError(19);
             }
 
-            
-        } finally {
             for (String port : outputs.keySet()) {
                 WritablePipe wpipe = outputs.get(port);
                 wpipe.close(); // Indicate we're done
             }
-            
+        } finally {
             runtime.finish(this);
             data.closeFrame();
         }
@@ -439,11 +430,7 @@ public class XAtomicStep extends XStep {
 
         QName pname = null;
         if (ns == null) {
-            if (name.contains(":")) {
-                pname = new QName(name,pnode);
-            } else {
-                pname = new QName(name);
-            }
+            pname = new QName(name,pnode);
         } else {
             int pos = name.indexOf(":");
             if (pos > 0) {
@@ -464,7 +451,7 @@ public class XAtomicStep extends XStep {
 
         p.setName(pname);
 
-        for (XdmNode attr : new AxisNodes(pnode, Axis.ATTRIBUTE)) {
+        for (XdmNode attr : new RelevantNodes(runtime, pnode, Axis.ATTRIBUTE)) {
             QName aname = attr.getNodeName();
             if ("".equals(aname.getNamespaceURI())) {
                 if (!aname.equals(_name) && !aname.equals(_namespace) && !aname.equals(_value)) {
@@ -505,7 +492,7 @@ public class XAtomicStep extends XStep {
 
         p.setName(pname);
 
-        for (XdmNode attr : new AxisNodes(pnode, Axis.ATTRIBUTE)) {
+        for (XdmNode attr : new RelevantNodes(runtime, pnode, Axis.ATTRIBUTE)) {
             QName aname = attr.getNodeName();
             if ("".equals(aname.getNamespaceURI())) {
                 if (!aname.equals(_name) && !aname.equals(_namespace)) {
@@ -516,7 +503,7 @@ public class XAtomicStep extends XStep {
 
         String stringValue = "";
         Vector<XdmItem> items = new Vector<XdmItem> ();
-        for (XdmNode child : new AxisNodes(runtime, pnode, Axis.CHILD, AxisNodes.PIPELINE)) {
+        for (XdmNode child : new RelevantNodes(runtime, pnode, Axis.CHILD)) {
             if (child.getNodeKind() == XdmNodeKind.ELEMENT) {
                if (!child.getNodeName().equals(cx_item)) {
                     throw XProcException.dynamicError(18, step.getNode(), "Element not allowed: " + child.getNodeName());

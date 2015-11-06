@@ -1,6 +1,5 @@
 package com.xmlcalabash.extensions;
 
-import com.xmlcalabash.core.XMLCalabash;
 import com.xmlcalabash.library.DefaultStep;
 import com.xmlcalabash.library.HttpRequest;
 import com.xmlcalabash.io.WritablePipe;
@@ -9,10 +8,9 @@ import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.core.XProcConstants;
 import com.xmlcalabash.runtime.XAtomicStep;
 import com.xmlcalabash.model.RuntimeValue;
-import com.xmlcalabash.util.AxisNodes;
-import com.xmlcalabash.util.MessageFormatter;
 import com.xmlcalabash.util.TreeWriter;
 import com.xmlcalabash.util.S9apiUtils;
+import com.xmlcalabash.util.RelevantNodes;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmNode;
@@ -31,11 +29,6 @@ import java.util.TimeZone;
  * Time: 9:41:54 PM
  * To change this template use File | Settings | File Templates.
  */
-
-@XMLCalabash(
-        name = "cx:uri-info",
-        type = "{http://xmlcalabash.com/ns/extensions}uri-info")
-
 public class UriInfo extends DefaultStep {
     private static final QName _href = new QName("href");
     private static final QName _method = new QName("method");
@@ -86,7 +79,7 @@ public class UriInfo extends DefaultStep {
         RuntimeValue href = getOption(_href);
         URI uri = href.getBaseURI().resolve(href.getString());
 
-        logger.trace(MessageFormatter.nodeMessage(step.getNode(), "Checking uri-info for " + uri));
+        finest(step.getNode(), "Checking uri-info for " + uri);
 
         TreeWriter tree = new TreeWriter(runtime);
         tree.startDocument(step.getNode().getBaseURI());
@@ -184,7 +177,7 @@ public class UriInfo extends DefaultStep {
             tree.addAttribute(_exists, status >= 400 && status < 500 ? "false" : "true");
             tree.addAttribute(_uri, uri.toASCIIString());
 
-            for (XdmNode node : new AxisNodes(result, Axis.CHILD, AxisNodes.SIGNIFICANT)) {
+            for (XdmNode node : new RelevantNodes(runtime, result, Axis.CHILD)) {
                 if ("Last-Modified".equals(node.getAttributeValue(_name))) {
                     String months[] = {"JAN", "FEB", "MAR", "APR", "MAY", "JUN",
                                        "JUL", "AUG", "SEP", "OCT", "NOV", "DEC" };
@@ -221,7 +214,7 @@ public class UriInfo extends DefaultStep {
 
             tree.startContent();
 
-            for (XdmNode node : new AxisNodes(result, Axis.CHILD, AxisNodes.SIGNIFICANT)) {
+            for (XdmNode node : new RelevantNodes(runtime, result, Axis.CHILD)) {
                 tree.addSubtree(node);
             }
 

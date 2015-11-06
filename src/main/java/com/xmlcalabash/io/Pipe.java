@@ -22,17 +22,16 @@ package com.xmlcalabash.io;
 import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.model.Step;
-import com.xmlcalabash.util.MessageFormatter;
 import net.sf.saxon.s9api.XdmNode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import java.util.logging.Logger;
 
 /**
  *
  * @author ndw
  */
 public class Pipe implements ReadablePipe, WritablePipe {
-    private Logger logger = LoggerFactory.getLogger(Pipe.class);
+    private Logger logger = Logger.getLogger(this.getClass().getName());
     private static int idCounter = 0;
     private int id = 0;
     private XProcRuntime runtime = null;
@@ -42,8 +41,6 @@ public class Pipe implements ReadablePipe, WritablePipe {
     private boolean writeSeqOk = false;
     private Step writer = null;
     private Step reader = null;
-    private String stepName = null;
-    private String portName = null;
 
     /** Creates a new instance of Pipe */
     public Pipe(XProcRuntime xproc) {
@@ -66,12 +63,6 @@ public class Pipe implements ReadablePipe, WritablePipe {
 
     public void setWriter(Step step) {
         writer  = step;
-    }
-
-    // These are for debugging...
-    public void setNames(String stepName, String portName) {
-        this.stepName = stepName;
-        this.portName = portName;
     }
 
     public void canWriteSequence(boolean sequence) {
@@ -108,6 +99,13 @@ public class Pipe implements ReadablePipe, WritablePipe {
     }
 
     public void close() {
+        /*
+        This causes problems in a for-each if the for-each never runs...
+        Plus I think I"m catching this error higher up now.
+        if (documents.size() == 0 && !writeSeqOk) {
+            throw XProcException.dynamicError(7);
+        }
+        */
         documents.close();
     }
 
@@ -121,14 +119,13 @@ public class Pipe implements ReadablePipe, WritablePipe {
 
     public XdmNode read () {
         if (pos > 0 && !readSeqOk) {
-            dynamicError(6);
+            throw XProcException.dynamicError(6);
         }
 
         XdmNode doc = documents.get(pos++);
 
         if (reader != null) {
-            logger.trace(MessageFormatter.nodeMessage(reader.getNode(),
-                    reader.getName() + " read '" + (doc == null ? "null" : doc.getBaseURI()) + "' from " + this));
+            runtime.finest(null, reader.getNode(), reader.getName() + " read '" + (doc == null ? "null" : doc.getBaseURI()) + "' from " + this);
         }
         
         return doc;
@@ -136,27 +133,17 @@ public class Pipe implements ReadablePipe, WritablePipe {
 
     public void write(XdmNode doc) {
         if (writer != null) {
-            logger.trace(MessageFormatter.nodeMessage(writer.getNode(),
-                    writer.getName() + " wrote '" + (doc == null ? "null" : doc.getBaseURI()) + "' to " + this));
+            runtime.finest(null, writer.getNode(), writer.getName() + " wrote '" + (doc == null ? "null" : doc.getBaseURI()) + "' to " + this);
         }
         documents.add(doc);
 
         if (documents.size() > 1 && !writeSeqOk) {
-            dynamicError(7);
+            throw XProcException.dynamicError(7);
         }
     }
 
     public String toString() {
         return "[pipe #" + id + "] (" + documents + ")";
-    }
-
-    private void dynamicError(int errno) {
-        String msg = null;
-        if (stepName != null) {
-            msg = "Reading " + portName + " on " + stepName;
-        }
-        throw XProcException.dynamicError(errno, (String) msg);
-
     }
 }
 

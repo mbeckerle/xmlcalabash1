@@ -25,7 +25,6 @@ import java.util.Hashtable;
 import java.util.Vector;
 import java.util.List;
 
-import com.xmlcalabash.util.MessageFormatter;
 import net.sf.saxon.s9api.Axis;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.XdmNode;
@@ -34,8 +33,6 @@ import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.core.XProcException;
 import net.sf.saxon.s9api.XdmNodeKind;
 import net.sf.saxon.s9api.XdmSequenceIterator;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  *
@@ -616,8 +613,8 @@ public class Step extends SourceArtifact {
     protected boolean checkBinding(Input input) {
         boolean valid = true;
 
-        logger.trace(MessageFormatter.nodeMessage(node, "Check bindings for " + input.getPort() + " on " + getName()));
-
+        runtime.finest(null, node, "Check bindings for " + input.getPort() + " on " + getName());
+        
         if (input.getBinding().size() == 0) {
             if (input.getParameterInput()) {
                 if (input.getPrimary()) {
@@ -764,7 +761,7 @@ public class Step extends SourceArtifact {
     protected boolean checkOptionBinding(EndPoint endpoint, boolean defEmpty) {
         boolean valid = true;
 
-        logger.trace(MessageFormatter.nodeMessage(node, "Check bindings for " + endpoint + " on " + getName()));
+        runtime.finest(null, node, "Check bindings for " + endpoint + " on " + getName());
 
         if (endpoint.getBinding().size() == 0) {
             Port port = env.getDefaultReadablePort();
@@ -902,8 +899,8 @@ public class Step extends SourceArtifact {
                 valid = false;
             }
         }
-
-        logger.trace(MessageFormatter.nodeMessage(node, "Checking step order for " + getName()));
+        
+        runtime.finest(null, node, "Checking step order for " + getName());
 
         if (getExtensionAttribute(cx_depend) != null
             || getExtensionAttribute(cx_depends) != null
@@ -924,7 +921,7 @@ public class Step extends SourceArtifact {
             for (Binding binding : input.getBinding()) {
                 if (binding.getBindingType() == Binding.PIPE_NAME_BINDING) {
                     PipeNameBinding pipe = (PipeNameBinding) binding;
-                    logger.trace(MessageFormatter.nodeMessage(node, getName() + " input " + input.getPort() + " depends on " + pipe.getStep()));
+                    runtime.finest(null, node, getName() + " input " + input.getPort() + " depends on " + pipe.getStep());
                     addDependency(pipe.getStep());
                 }
             }
@@ -936,7 +933,7 @@ public class Step extends SourceArtifact {
             for (Binding binding : param.getBinding()) {
                 if (binding.getBindingType() == Binding.PIPE_NAME_BINDING) {
                     PipeNameBinding pipe = (PipeNameBinding) binding;
-                    logger.trace(MessageFormatter.nodeMessage(node, getName() + " param depends on " + pipe.getStep()));
+                    runtime.finest(null, node, getName() + " param depends on " + pipe.getStep());
                     addDependency(pipe.getStep());
                 }
             }
@@ -946,7 +943,7 @@ public class Step extends SourceArtifact {
             for (Binding binding : option.getBinding()) {
                 if (binding.getBindingType() == Binding.PIPE_NAME_BINDING) {
                     PipeNameBinding pipe = (PipeNameBinding) binding;
-                    logger.trace(MessageFormatter.nodeMessage(node, getName() + " option depends on " + pipe.getStep()));
+                    runtime.finest(null, node, getName() + " option depends on " + pipe.getStep());
                     addDependency(pipe.getStep());
                 }
             }
@@ -962,7 +959,7 @@ public class Step extends SourceArtifact {
             boolean root = true;
             for (String stepName : deps) {
                 if (!stepName.equals(getName())) {
-                    logger.trace(MessageFormatter.nodeMessage(node, getName() + " step " + step.getName() + " depends on " + stepName));
+                    runtime.finest(null, node, getName() + " step " + step.getName() + " depends on " + stepName);
                     addDependency(stepName);
                 }
                 if (containsStep(stepName)) {
@@ -970,7 +967,7 @@ public class Step extends SourceArtifact {
                 }
             }
             if (root) {
-                logger.trace(MessageFormatter.nodeMessage(node, "==> " + step.getName() + " is a graph root of " + getName()));
+                runtime.finest(null, node, "==> " + step.getName() + " is a graph root of " + getName());
                 roots.add(step);
                 step.depth = 0;
             }
@@ -989,17 +986,17 @@ public class Step extends SourceArtifact {
                     for (Step root : roots) {
                         for (Step step : subpipeline) {
                             if (step.dependsOn(root.getName())) {
-                                logger.trace(MessageFormatter.nodeMessage(node, "XProcStep " + step.getName() + " depends on " + root.getName() + "(step.depth="+step.depth+", depth="+depth+")"));
+                                runtime.finest(null, node, "XProcStep " + step.getName() + " depends on " + root.getName() + "(step.depth="+step.depth+", depth="+depth+")");
                                 if ((step.depth < 0) || (depth >= step.depth)) {
                                     step.depth = depth;
-                                    logger.trace(MessageFormatter.nodeMessage(node, step.getName() + " gets depth " + depth));
+                                    runtime.finest(null, node, step.getName() + " gets depth " + depth);
                                     nextWave.add(step);
                                 } else {
                                     noloops = false;
                                     error("Loop in subpipeline: " + step.getName() + " points back to " + root.getName(), XProcConstants.staticError(1));
                                 }
                             } else {
-                                logger.trace(MessageFormatter.nodeMessage(node, "XProcStep " + step.getName() + " does not depend on " + root.getName()));
+                                runtime.finest(null, node, "XProcStep " + step.getName() + " does not depend on " + root.getName());
                             }
                         }
                     }
@@ -1100,7 +1097,7 @@ public class Step extends SourceArtifact {
             Input dinput = declInputs.get(portName);
             Input input = getInput(portName);
             if (input == null) {
-                logger.trace(MessageFormatter.nodeMessage(node, "Added " + portName + " input to " + getName()));
+                runtime.finest(null, node, "Added " + portName + " input to " + getName());
                 input = new Input(runtime, node);
                 input.setPort(portName);
                 input.setParameterInput(dinput.getParameterInput());
@@ -1127,7 +1124,7 @@ public class Step extends SourceArtifact {
             Output doutput = declOutputs.get(portName);
             Output output = getOutput(portName);
             if (output == null) {
-                logger.trace(MessageFormatter.nodeMessage(node, "Added " + portName + " output to " + getName()));
+                runtime.finest(null, node, "Added " + portName + " output to " + getName());
                 output = new Output(runtime, node);
                 output.setPort(portName);
                 output.setSequence(doutput.getSequence());
@@ -1173,18 +1170,22 @@ public class Step extends SourceArtifact {
 
     public void patchPipeBindings() {
         for (Input input : inputs) {
+            //runtime.finest(null, node, "Patch " + input.getPort() + " on " + getName());
             patchInputBindings(input);
         }
 
         for (Parameter param : params) {
+            //runtime.finest(null, node, "Patch " + input.getPort() + " on " + getName());
             patchInputBindings(param);
         }
 
         for (Option option : options) {
+            //runtime.finest(null, node, "Patch " + input.getPort() + " on " + getName());
             patchInputBindings(option);
         }
 
         for (Variable var : getVariables()) {
+            //runtime.finest(null, node, "Patch " + input.getPort() + " on " + getName());
             patchInputBindings(var);
         }
 
@@ -1205,9 +1206,9 @@ public class Step extends SourceArtifact {
                 Output source = env.readablePort(pipename.getStep(), pipename.getPort());
                 pipe.setOutput(source);
                 pipe.setInput(endpoint);
-
-                //logger.trace(MessageFormatter.nodeMessage(node, "Patching " + pipename + " : " + pipe + " " + endpoint + " to " + source));
-
+                
+                //runtime.finest(null, node, "Patching " + pipename + " : " + pipe + " " + endpoint + " to " + source);
+                    
                 bindings.set(bpos, pipe);
                 if (source != null) {
                     source.addBinding(pipe);
@@ -1245,8 +1246,9 @@ public class Step extends SourceArtifact {
     }
 
     public void dump() {
-        logger.trace("============================================================================");
+        System.err.println("============================================================================");
         dump(0);
+        System.err.println("");
     }
     
     protected void dump(int depth) {
@@ -1256,9 +1258,9 @@ public class Step extends SourceArtifact {
         }
 
         if (getType().getNamespaceURI().equals(XProcConstants.NS_XPROC)) {
-            logger.trace(indent + getType().getLocalName() + " " + getName());
+            System.err.println(indent + getType().getLocalName() + " " + getName());
         } else {
-            logger.trace(indent + "XProcStep " + getName() + " (" + getType() + ")");
+            System.err.println(indent + "XProcStep " + getName() + " (" + getType() + ")");
         }
         
         for (Input input : inputs) {

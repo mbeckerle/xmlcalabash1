@@ -9,7 +9,6 @@ import com.xmlcalabash.io.WritablePipe;
 import com.xmlcalabash.model.RuntimeValue;
 import com.xmlcalabash.model.Step;
 import com.xmlcalabash.model.Variable;
-import com.xmlcalabash.util.MessageFormatter;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XPathCompiler;
@@ -63,7 +62,7 @@ public class XUntilUnchanged extends XCompoundStep {
     }
 
     public void run() throws SaxonApiException {
-        logger.trace("Running cx:until-unchanged " + step.getName());
+        fine(null, "Running cx:until-unchanged " + step.getName());
 
         XProcData data = runtime.getXProcData();
         data.openFrame(this);
@@ -104,7 +103,7 @@ public class XUntilUnchanged extends XCompoundStep {
                         // Setup the current port before we compute variables!
                         current.resetWriter();
                         current.write(is_doc);
-                        logger.trace(MessageFormatter.nodeMessage(step.getNode(), "Copy to current"));
+                        finest(step.getNode(), "Copy to current");
 
                         sequencePosition++;
                         runtime.getXProcData().setIterationPosition(sequencePosition);
@@ -140,7 +139,7 @@ public class XUntilUnchanged extends XCompoundStep {
                         }
 
                         if (docsCopied != 1) {
-                            throw XProcException.dynamicError(6, "Writing to " + iPortName + " on " + getStep().getName());
+                            throw XProcException.dynamicError(6);
                         }
 
                         for (XStep step : subpipeline) {
@@ -169,7 +168,6 @@ public class XUntilUnchanged extends XCompoundStep {
                 }
             }
 
-        } finally {
             for (String port : inputs.keySet()) {
                 if (port.startsWith("|")) {
                     String wport = port.substring(1);
@@ -177,6 +175,7 @@ public class XUntilUnchanged extends XCompoundStep {
                     pipe.close(); // Indicate that we're done
                 }
             }
+        } finally {
             runtime.finish(this);
             data.closeFrame();
         }

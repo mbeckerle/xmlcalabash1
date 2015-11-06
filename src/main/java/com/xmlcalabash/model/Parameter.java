@@ -25,8 +25,6 @@ import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.XdmNode;
 import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.core.XProcConstants;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  *
@@ -123,9 +121,9 @@ public class Parameter extends EndPoint implements ComputableValue {
             indent += " ";
         }
 
-        logger.trace(indent + "parameter " + getName());
+        System.err.println(indent + "parameter " + getName());
         if (bindings.size() == 0) {
-            logger.trace(indent + "  no binding");
+            System.err.println(indent + "  no binding");
         }
         for (Binding binding : getBinding()) {
             binding.dump(depth+2);

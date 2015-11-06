@@ -22,7 +22,6 @@ package com.xmlcalabash.library;
 import java.net.URI;
 import java.util.Stack;
 
-import com.xmlcalabash.core.XMLCalabash;
 import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.util.ProcessMatch;
@@ -44,11 +43,6 @@ import com.xmlcalabash.runtime.XAtomicStep;
  *
  * @author ndw
  */
-
-@XMLCalabash(
-        name = "p:add-xml-base",
-        type = "{http://www.w3.org/ns/xproc}add-xml-base")
-
 public class AddXmlBase extends DefaultStep implements ProcessMatchingNodes {
     private static final QName xml_base = new QName("xml",XMLConstants.XML_NS_URI, "base");
     private static final QName _all = new QName("", "all");

@@ -22,7 +22,6 @@ package com.xmlcalabash.library;
 import java.io.UnsupportedEncodingException;
 import java.util.Vector;
 
-import com.xmlcalabash.core.XMLCalabash;
 import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.util.ProcessMatch;
@@ -39,11 +38,6 @@ import com.xmlcalabash.runtime.XAtomicStep;
  *
  * @author ndw
  */
-
-@XMLCalabash(
-        name = "p:www-form-urlencode",
-        type = "{http://www.w3.org/ns/xproc}www-form-urlencode")
-
 public class WWWFormURLEncode extends DefaultStep implements ProcessMatchingNodes {
     private ReadablePipe source = null;
     private WritablePipe result = null;
@@ -102,7 +96,7 @@ public class WWWFormURLEncode extends DefaultStep implements ProcessMatchingNode
         matcher.match(source.read(), getOption(_match));
 
         if (source.moreDocuments()) {
-            throw XProcException.dynamicError(6, "Reading source on " + getStep().getName());
+            throw XProcException.dynamicError(6);
         }
 
         result.write(matcher.getResult());
@@ -143,7 +137,7 @@ public class WWWFormURLEncode extends DefaultStep implements ProcessMatchingNode
 
     private String encode(String src) {
         String genDelims = ":/?#[]@";
-        String subDelims = "!$'()*,;="; // N.B. NO & and no + !
+        String subDelims = "!$'()*+,;="; // N.B. NO &!
         String unreserved = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-._~";
         String okChars = genDelims + subDelims + unreserved;
 
@@ -155,11 +149,7 @@ public class WWWFormURLEncode extends DefaultStep implements ProcessMatchingNode
                 if (okChars.indexOf(bytes[pos]) >= 0) {
                     encoded += (char) bytes[pos];
                 } else {
-                    if (bytes[pos] == ' ') {
-                        encoded += "+";
-                    } else {
-                        encoded += String.format("%%%02X", bytes[pos]);
-                    }
+                    encoded += String.format("%%%02X", bytes[pos]);
                 }
             }
         } catch (UnsupportedEncodingException uee) {

@@ -22,7 +22,6 @@ package com.xmlcalabash.library;
 import java.util.Map;
 import java.util.Iterator;
 
-import com.xmlcalabash.core.XMLCalabash;
 import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.util.ProcessMatchingNodes;
 import com.xmlcalabash.util.ProcessMatch;
@@ -48,11 +47,6 @@ import com.xmlcalabash.core.XProcException;
  *
  * @author ndw
  */
-
-@XMLCalabash(
-        name = "p:label-elements",
-        type = "{http://www.w3.org/ns/xproc}label-elements")
-
 public class LabelElements extends DefaultStep implements ProcessMatchingNodes {
     private static final QName _attribute = new QName("attribute");
     private static final QName _attribute_prefix = new QName("attribute-prefix");

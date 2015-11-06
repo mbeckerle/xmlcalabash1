@@ -19,7 +19,6 @@
 
 package com.xmlcalabash.library;
 
-import com.xmlcalabash.core.XMLCalabash;
 import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.core.XProcConstants;
@@ -36,11 +35,6 @@ import com.xmlcalabash.runtime.XAtomicStep;
  *
  * @author ndw
  */
-
-@XMLCalabash(
-        name = "p:error",
-        type = "{http://www.w3.org/ns/xproc}error")
-
 public class Error extends DefaultStep {
     private static final QName c_error = new QName("c", XProcConstants.NS_XPROC_STEP, "error");
     private static final QName _name = new QName("name");
@@ -71,11 +65,7 @@ public class Error extends DefaultStep {
         super.run();
 
         XdmNode doc = source.read();
-        if (doc == null) {
-            logger.trace("Error step read empty");
-        } else {
-            logger.trace("Error step read " + doc.getDocumentURI());
-        }
+        finest(null, "Error step " + "???" + " read " + doc.getDocumentURI());
 
         RuntimeValue codeNameValue = getOption(_code);
         String codeNameStr = codeNameValue.getString();
@@ -113,19 +103,13 @@ public class Error extends DefaultStep {
         treeWriter.addAttribute(_type, "p:error");
         treeWriter.addAttribute(_code, errorCode.toString());
         treeWriter.startContent();
-        if (doc != null) {
-            treeWriter.addSubtree(doc);
-        }
+        treeWriter.addSubtree(doc);
         treeWriter.addEndElement();
         treeWriter.endDocument();
 
         step.reportError(treeWriter.getResult());
 
-        if (doc == null) {
-            throw new XProcException(errorCode);
-        } else {
-            throw new XProcException(errorCode, doc, doc.getStringValue());
-        }
+        throw new XProcException(errorCode, doc, doc.getStringValue());
     }
 }
 

@@ -20,8 +20,6 @@
 package com.xmlcalabash.library;
 
 import java.util.Map;
-
-import com.xmlcalabash.core.XMLCalabash;
 import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.util.ProcessMatchingNodes;
@@ -38,11 +36,6 @@ import com.xmlcalabash.runtime.XAtomicStep;
  *
  * @author ndw
  */
-
-@XMLCalabash(
-        name = "p:replace",
-        type = "{http://www.w3.org/ns/xproc}replace")
-
 public class Replace extends DefaultStep implements ProcessMatchingNodes {
     private static final QName _match = new QName("match");
     private ReadablePipe replacement = null;
@@ -80,7 +73,7 @@ public class Replace extends DefaultStep implements ProcessMatchingNodes {
         matcher.match(source.read(), getOption(_match));
 
         if (source.moreDocuments()) {
-            throw XProcException.dynamicError(6, "Reading source on " + getStep().getName());
+            throw XProcException.dynamicError(6);
         }
 
         result.write(matcher.getResult());

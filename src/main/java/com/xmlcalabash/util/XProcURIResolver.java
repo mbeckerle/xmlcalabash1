@@ -5,7 +5,6 @@ import net.sf.saxon.lib.StandardModuleURIResolver;
 import net.sf.saxon.lib.StandardUnparsedTextResolver;
 import net.sf.saxon.lib.UnparsedTextURIResolver;
 import net.sf.saxon.trans.XPathException;
-import org.slf4j.LoggerFactory;
 import org.xml.sax.InputSource;
 import org.xml.sax.EntityResolver;
 import org.xml.sax.SAXException;
@@ -28,8 +27,6 @@ import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcConstants;
 import com.xmlcalabash.core.XProcRuntime;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -40,11 +37,7 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.Hashtable;
-import java.util.List;
-
-import org.slf4j.Logger;
-import org.xmlresolver.CatalogSource;
-import org.xmlresolver.Resolver;
+import java.util.logging.Logger;
 
 /**
  * Created by IntelliJ IDEA.
@@ -54,7 +47,6 @@ import org.xmlresolver.Resolver;
  * To change this template use File | Settings | File Templates.
  */
 public class XProcURIResolver implements URIResolver, EntityResolver, ModuleURIResolver, UnparsedTextURIResolver {
-    private Logger logger = LoggerFactory.getLogger(XProcURIResolver.class);
     private URIResolver uriResolver = null;
     private EntityResolver entityResolver = null;
     private ModuleURIResolver moduleURIResolver = null;
@@ -71,55 +63,16 @@ public class XProcURIResolver implements URIResolver, EntityResolver, ModuleURIR
         uriResolver = resolver;
     }
 
-    public URIResolver getUnderlyingURIResolver() {
-        return uriResolver;
-    }
-
     public void setUnderlyingEntityResolver(EntityResolver resolver) {
         entityResolver = resolver;
-    }
-
-    public EntityResolver getUnderlyingEntityResolver() {
-        return entityResolver;
     }
 
     public void setUnderlyingUnparsedTextURIResolver(UnparsedTextURIResolver resolver) {
         unparsedTextResolver = resolver;
     }
 
-    public UnparsedTextURIResolver getUnderlyingUnparsedTextURIResolver() {
-        return unparsedTextResolver;
-    }
-
     public void setUnderlyingModuleURIResolver(ModuleURIResolver resolver) {
         moduleURIResolver = resolver;
-    }
-
-    public ModuleURIResolver getUnderlyingModuleURIResolver() {
-        return moduleURIResolver;
-    }
-
-    public void addCatalogs(List<String> catalogs) {
-        if (uriResolver instanceof org.xmlresolver.Resolver) {
-            Resolver res = (org.xmlresolver.Resolver) uriResolver;
-            for (String catalog : catalogs) {
-                logger.debug("Adding catalog to resolver: " + catalog);
-                try {
-                    URL cat = new URL(catalog);
-                    InputSource source = new InputSource(cat.openStream());
-                    source.setSystemId(catalog);
-
-                    CatalogSource catsource = new CatalogSource.InputSourceCatalogSource(source);
-                    res.getCatalog().addSource(catsource);
-                } catch (MalformedURLException e) {
-                    logger.info("Malformed catalog URI in jar file: " + catalog);
-                } catch (IOException e) {
-                    logger.info("I/O error reading catalog URI in jar file: " + catalog);
-                }
-            }
-        } else {
-            logger.debug("Not adding catalogs to resolver, uriResolver is not an org.xmlresolver.Resolver");
-        }
     }
 
     public void cache(XdmNode doc, URI baseURI) {
@@ -135,7 +88,7 @@ public class XProcURIResolver implements URIResolver, EntityResolver, ModuleURIR
     }
 
     public Source resolve(String href, String base) throws TransformerException {
-        logger.trace("URIResolver(" + href + "," + base + ")");
+        runtime.finest(null,null,"URIResolver(" + href + "," + base + ")");
 
         String uri = null;
         if (base == null) {
@@ -143,28 +96,28 @@ public class XProcURIResolver implements URIResolver, EntityResolver, ModuleURIR
                 URL url = new URL(href);
                 uri = url.toURI().toASCIIString();
             } catch (MalformedURLException mue) {
-                logger.trace("MalformedURLException on " + href);
+                runtime.finest(null,null,"MalformedURLException on " + href);
             } catch (URISyntaxException use) {
-                logger.trace("URISyntaxException on " + href);
+                runtime.finest(null,null,"URISyntaxException on " + href);
             }
         } else {
             try {
                 URI baseURI = new URI(base);
                 uri = baseURI.resolve(href).toASCIIString();
             } catch (URISyntaxException use) {
-                logger.trace("URISyntaxException resolving base and href: " + base + " : " + href);
+                runtime.finest(null,null,"URISyntaxException resolving base and href: " + base + " : " + href);
             }
         }
 
-        logger.trace("Resolved: " + uri);
+        runtime.finest(null,null,"Resolved: " + uri);
 
         if (cache.containsKey(uri)) {
-            logger.trace("Returning cached document.");
+            runtime.finest(null ,null,"Returning cached document.");
             return cache.get(uri).asSource();
         }
 
         if (uriResolver != null) {
-            logger.trace("uriResolver.resolve(" + href + "," + base + ")");
+            runtime.finest(null,null,"uriResolver.resolve(" + href + "," + base + ")");
             Source resolved = uriResolver.resolve(href, base);
 
             // FIXME: This is a grotesque hack. This is wrong. Wrong. Wrong.
@@ -201,7 +154,7 @@ public class XProcURIResolver implements URIResolver, EntityResolver, ModuleURIR
     public XdmNode parse(String href, String base, boolean dtdValidate) {
         Source source = null;
         href = URIUtils.encode(href);
-        logger.trace("Attempting to parse: " + href + " (" + base + ")");
+        runtime.finest(null,null,"Attempting to parse: " + href + " (" + base + ")");
 
         try {
             source = resolve(href, base);
@@ -213,25 +166,6 @@ public class XProcURIResolver implements URIResolver, EntityResolver, ModuleURIR
             try {
                 URI baseURI = new URI(base);
                 URI resURI = baseURI.resolve(href);
-
-                String path = baseURI.toASCIIString();
-                int pos = path.indexOf("!");
-                if (pos > 0 && (path.startsWith("jar:file:") || path.startsWith("jar:http:") || path.startsWith("jar:https:"))) {
-                    // You can't resolve() against jar: scheme URIs because they appear to be opaque.
-                    // I wonder if what follows is kosher...
-                    String fakeURIstr = "http://example.com";
-                    String subpath = path.substring(pos+1);
-                    if (subpath.startsWith("/")) {
-                        fakeURIstr += subpath;
-                    } else {
-                        fakeURIstr += "/" + subpath;
-                    }
-                    URI fakeURI = new URI(fakeURIstr);
-                    resURI = fakeURI.resolve(href);
-                    fakeURIstr = path.substring(0,pos+1) + resURI.getPath();
-                    resURI = new URI(fakeURIstr);
-                }
-
                 source = new SAXSource(new InputSource(resURI.toASCIIString()));
 
                 XMLReader reader = ((SAXSource) source).getXMLReader();
@@ -292,7 +226,7 @@ public class XProcURIResolver implements URIResolver, EntityResolver, ModuleURIR
     }
 
     public InputSource resolveEntity(String publicId, String systemId) throws SAXException, IOException {
-        logger.trace("ResolveEntity(" + publicId + "," + systemId + ")");
+        runtime.finest(null,null,"ResolveEntity(" + publicId + "," + systemId + ")");
 
         if (systemId == null) {
             return null;
@@ -302,11 +236,11 @@ public class XProcURIResolver implements URIResolver, EntityResolver, ModuleURIR
             URI baseURI = new URI(systemId);
             String uri = baseURI.toASCIIString();
             if (cache.containsKey(uri)) {
-                logger.trace("Returning cached document.");
+                runtime.finest(null,null,"Returning cached document.");
                 return S9apiUtils.xdmToInputSource(runtime, cache.get(uri));
             }
         } catch (URISyntaxException use) {
-            logger.trace("URISyntaxException resolving entityResolver systemId: " + systemId);
+            runtime.finest(null,null,"URISyntaxException resolving entityResolver systemId: " + systemId);
         } catch (SaxonApiException sae) {
             throw new XProcException(sae);
         }

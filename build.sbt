@@ -23,6 +23,9 @@ libraryDependencies ++= Seq(
     , "org.restlet.osgi" % "org.restlet.ext.fileupload" % "2.2.2"
     , "com.sun.xml.bind" % "jaxb1-impl" % "2.2.4-1"
     , "org.opengis.cite.saxon" % "saxon9" % "9.0.0.8"
+    , "xmlunit" % "xmlunit" % "1.6"
+    ,  "com.tunnelvisionlabs" % "xmlcalabash-extension-stubs" % "1.0.0"
+    , "org.apache.xmlgraphics" % "fop" % "2.0"
     
 )
 

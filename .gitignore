@@ -1,18 +1,5 @@
 # Ignore these files. Note to self: Files in .git/info/exclude are also ignored.
-#
-/.gradle/
-/build/
 /target/
-/src/main/resources/etc/version.properties
 /bin/
-/.cache*
-/.classpath
-/.project
-/.settings
-/project/target
-/target
-/lib_managed
-/.eclipse-bak
-/project/project
-/bin
-*~
+/lib_managed/
+

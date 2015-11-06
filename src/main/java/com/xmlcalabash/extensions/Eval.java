@@ -1,6 +1,5 @@
 package com.xmlcalabash.extensions;
 
-import com.xmlcalabash.core.XMLCalabash;
 import com.xmlcalabash.library.DefaultStep;
 import com.xmlcalabash.io.ReadablePipe;
 import com.xmlcalabash.io.WritablePipe;
@@ -14,9 +13,9 @@ import com.xmlcalabash.runtime.XLibrary;
 import com.xmlcalabash.model.RuntimeValue;
 import com.xmlcalabash.model.Input;
 import com.xmlcalabash.model.DeclareStep;
-import com.xmlcalabash.util.AxisNodes;
 import com.xmlcalabash.util.S9apiUtils;
 import com.xmlcalabash.util.TreeWriter;
+import com.xmlcalabash.util.RelevantNodes;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmNode;
@@ -38,11 +37,6 @@ import java.util.Iterator;
  * Time: 5:22:42 PM
  * To change this template use File | Settings | File Templates.
  */
-
-@XMLCalabash(
-        name = "cx:eval",
-        type = "{http://xmlcalabash.com/ns/extensions}eval")
-
 public class Eval extends DefaultStep {
     protected final static QName cx_document = new QName("cx", XProcConstants.NS_CALABASH_EX, "document");
     protected final static QName cx_options = new QName("cx", XProcConstants.NS_CALABASH_EX, "options");
@@ -109,6 +103,7 @@ public class Eval extends DefaultStep {
         XdmNode piperoot = S9apiUtils.getDocumentElement(pipedoc);
 
         XProcRuntime innerRuntime = new XProcRuntime(runtime);
+        innerRuntime.resetExtensionFunctions();
 
         QName stepName = getOption(_step, (QName) null);
         XPipeline pipeline = null;
@@ -224,7 +219,7 @@ public class Eval extends DefaultStep {
                 }
 
                 
-                for (XdmNode opt : new AxisNodes(runtime, root, Axis.CHILD, AxisNodes.SIGNIFICANT)) {
+                for (XdmNode opt : new RelevantNodes(runtime, root, Axis.CHILD)) {
                     if (opt.getNodeKind() != XdmNodeKind.ELEMENT || !cx_option.equals(opt.getNodeName())) {
                         throw new XProcException(step.getNode(), "A cx:options document must only contain cx:option elements");
                     }
@@ -272,5 +267,7 @@ public class Eval extends DefaultStep {
                 result.write(tree.getResult());
             }
         }
+
+        runtime.resetExtensionFunctions();
     }
 }

@@ -22,10 +22,8 @@ package com.xmlcalabash.library;
 import java.net.URI;
 import java.util.Map;
 
-import com.xmlcalabash.core.XMLCalabash;
 import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.util.MessageFormatter;
 import com.xmlcalabash.util.ProcessMatchingNodes;
 import com.xmlcalabash.util.ProcessMatch;
 import com.xmlcalabash.util.URIUtils;
@@ -41,11 +39,6 @@ import com.xmlcalabash.runtime.XAtomicStep;
  *
  * @author ndw
  */
-
-@XMLCalabash(
-        name = "p:make-absolute-uris",
-        type = "{http://www.w3.org/ns/xproc}make-absolute-uris")
-
 public class MakeAbsoluteURIs extends DefaultStep implements ProcessMatchingNodes {
     private static final QName _match = new QName("", "match");
     private static final QName _base_uri = new QName("", "base-uri");
@@ -81,13 +74,13 @@ public class MakeAbsoluteURIs extends DefaultStep implements ProcessMatchingNode
             setBaseURI = base.getBaseURI().resolve(base.getString());
         }
 
-        logger.trace(MessageFormatter.nodeMessage(doc, "Making URIs absolute against: " + setBaseURI));
+        finest(doc, "Making URIs absolute against: " + setBaseURI);
 
         matcher = new ProcessMatch(runtime, this);
         matcher.match(doc, getOption(_match));
 
         if (source.moreDocuments()) {
-            throw XProcException.dynamicError(6, "Reading source on " + getStep().getName());
+            throw XProcException.dynamicError(6);
         }
 
         result.write(matcher.getResult());

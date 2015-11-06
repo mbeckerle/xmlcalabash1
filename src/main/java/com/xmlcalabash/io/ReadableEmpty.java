@@ -27,10 +27,6 @@ public class ReadableEmpty implements ReadablePipe {
         // nop
     }
 
-    public void setNames(String stepName, String portName) {
-        // nop;
-    }
-
     public void resetReader() {
         // nop
     }

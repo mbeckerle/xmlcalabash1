@@ -21,8 +21,6 @@
 package com.xmlcalabash.io;
 
 import com.xmlcalabash.core.XProcException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -48,7 +46,6 @@ import java.util.Properties;
  * @author James Leigh <james@3roundstones.com>
  */
 public class FileDataStore implements DataStore {
-    private Logger logger = LoggerFactory.getLogger(FileDataStore.class);
 	private final DataStore fallback;
 	private final Properties contentTypes;
     private Hashtable<String,String> cachedMapping = null;
@@ -174,7 +171,8 @@ public class FileDataStore implements DataStore {
 					handler.list(f.toURI(), type, f.lastModified());
 				}
 			} else {
-                throw new FileNotFoundException(file.getAbsolutePath() + " is not a directory");
+				throw new FileNotFoundException(file.getAbsolutePath()
+						+ " is not a directory");
 			}
 		} else {
 			fallback.listEachEntry(href, base, accept, handler);
@@ -195,7 +193,7 @@ public class FileDataStore implements DataStore {
 				if (file.mkdirs()) {
 					return file.toURI();
 				} else {
-					throw new IOException("Could not create directory: "
+					throw new IOException("Could not create diretory: "
 							+ file.getAbsolutePath());
 				}
 			}
@@ -364,8 +362,7 @@ public class FileDataStore implements DataStore {
 				is.close();
 			}
 		} catch (IOException e) {
-            logger.warn("Failed to load content types: " + file.getAbsolutePath());
-            logger.debug(e.getMessage(), e);
+			e.printStackTrace();
 		}
 	}
 

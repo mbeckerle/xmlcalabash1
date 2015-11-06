@@ -24,7 +24,6 @@ import java.util.Hashtable;
 import java.util.Vector;
 import java.util.HashSet;
 
-import com.xmlcalabash.util.MessageFormatter;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.XdmNode;
 import com.xmlcalabash.core.XProcConstants;
@@ -224,7 +223,7 @@ public class CompoundStep extends Step {
                         step = step.parent;
                     }
                     if (!ancestor) {
-                        logger.trace(MessageFormatter.nodeMessage(node, getName() + " variable depends on " + pipe.getStep()));
+                        runtime.finest(null, node, getName() + " variable depends on " + pipe.getStep());
                         addDependency(pipe.getStep());
                     }
                 }

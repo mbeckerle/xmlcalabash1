@@ -19,7 +19,6 @@
 
 package com.xmlcalabash.library;
 
-import com.xmlcalabash.core.XMLCalabash;
 import com.xmlcalabash.core.XProcConstants;
 import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcRuntime;
@@ -35,11 +34,6 @@ import com.xmlcalabash.runtime.XAtomicStep;
  *
  * @author ndw
  */
-
-@XMLCalabash(
-        name = "p:count",
-        type = "{http://www.w3.org/ns/xproc}count")
-
 public class Count extends DefaultStep {
     private static final QName c_result = new QName("c", XProcConstants.NS_XPROC_STEP, "result");
     private static final QName _limit = new QName("limit");

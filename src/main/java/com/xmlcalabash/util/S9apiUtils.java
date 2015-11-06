@@ -141,7 +141,7 @@ public class S9apiUtils {
 
     public static XdmNode getDocumentElement(XdmNode doc) {
         if (doc.getNodeKind() == XdmNodeKind.DOCUMENT) {
-            for (XdmNode node : new AxisNodes(doc, Axis.CHILD, AxisNodes.SIGNIFICANT)) {
+            for (XdmNode node : new RelevantNodes(doc, Axis.CHILD,true)) {
                 if (node.getNodeKind() == XdmNodeKind.ELEMENT) {
                     return node; // There can be only one, this is an XML document
                 }
@@ -232,7 +232,7 @@ public class S9apiUtils {
     // FIXME: THIS METHOD IS A GROTESQUE HACK!
     public static InputSource xdmToInputSource(XProcRuntime runtime, XdmNode node) throws SaxonApiException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        Serializer serializer = runtime.getProcessor().newSerializer();
+        Serializer serializer = new Serializer();
         serializer.setOutputStream(out);
         serialize(runtime, node, serializer);
         InputSource isource = new InputSource(new ByteArrayInputStream(out.toByteArray()));

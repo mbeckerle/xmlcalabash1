@@ -5,6 +5,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.MalformedURLException;
@@ -27,8 +29,6 @@ import javax.xml.datatype.DatatypeConfigurationException;
 import javax.xml.datatype.DatatypeFactory;
 import javax.xml.datatype.XMLGregorianCalendar;
 
-import com.xmlcalabash.core.XMLCalabash;
-import com.xmlcalabash.util.*;
 import net.sf.saxon.s9api.Axis;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
@@ -42,23 +42,33 @@ import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.io.DataStore;
 import com.xmlcalabash.io.DataStore.DataInfo;
 import com.xmlcalabash.io.DataStore.DataReader;
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.model.RuntimeValue;
+import com.xmlcalabash.util.Base64;
+import com.xmlcalabash.util.JSONtoXML;
+import com.xmlcalabash.util.TreeWriter;
+import com.xmlcalabash.util.S9apiUtils;
+import com.xmlcalabash.util.RelevantNodes;
 import com.xmlcalabash.io.WritablePipe;
 import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.io.WritablePipe;
 import com.xmlcalabash.library.DefaultStep;
 import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.RelevantNodes;
 import com.xmlcalabash.util.S9apiUtils;
 import com.xmlcalabash.util.TreeWriter;
+import com.xmlcalabash.util.XMLtoJSON;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.XdmNode;
+import net.sf.saxon.s9api.Axis;
+import net.sf.saxon.s9api.XdmNodeKind;
+import net.sf.saxon.s9api.Serializer;
 
 /**
  *
  * @author ndw
  */
-
-@XMLCalabash(
-        name = "pxp:zip",
-        type = "{http://exproc.org/proposed/steps}zip " +
-                "{http://xmlcalabash.com/ns/extensions}zip")
-
 public class Zip extends DefaultStep {
     protected final static QName _href = new QName("", "href");
     protected final static QName _name = new QName("", "name");
@@ -233,45 +243,42 @@ public class Zip extends DefaultStep {
     
         ZipInputStream zipStream = new ZipInputStream(stream);
     
-        try {
-            GregorianCalendar cal = new GregorianCalendar();
-
-            ZipEntry entry = zipStream.getNextEntry();
-            while (entry != null) {
-                cal.setTimeInMillis(entry.getTime());
-                XMLGregorianCalendar xmlCal = dfactory.newXMLGregorianCalendar(cal);
-
-                if (entry.isDirectory()) {
-                    tree.addStartElement(c_directory);
-                } else {
-                    tree.addStartElement(c_file);
-
-                    tree.addAttribute(_compressed_size, ""+entry.getCompressedSize());
-                    tree.addAttribute(_size, ""+entry.getSize());
-                }
-
-                if (entry.getComment() != null) {
-                    tree.addAttribute(_comment, entry.getComment());
-                }
-
-                tree.addAttribute(_name, ""+entry.getName());
-                tree.addAttribute(_date, xmlCal.toXMLFormat());
-                tree.startContent();
-                tree.addEndElement();
-                entry = zipStream.getNextEntry();
+        GregorianCalendar cal = new GregorianCalendar();
+    
+        ZipEntry entry = zipStream.getNextEntry();
+        while (entry != null) {
+            cal.setTimeInMillis(entry.getTime());
+            XMLGregorianCalendar xmlCal = dfactory.newXMLGregorianCalendar(cal);
+    
+            if (entry.isDirectory()) {
+                tree.addStartElement(c_directory);
+            } else {
+                tree.addStartElement(c_file);
+    
+                tree.addAttribute(_compressed_size, ""+entry.getCompressedSize());
+                tree.addAttribute(_size, ""+entry.getSize());
             }
-
+    
+            if (entry.getComment() != null) {
+                tree.addAttribute(_comment, entry.getComment());
+            }
+    
+            tree.addAttribute(_name, ""+entry.getName());
+            tree.addAttribute(_date, xmlCal.toXMLFormat());
+            tree.startContent();
             tree.addEndElement();
-            tree.endDocument();
-            result.write(tree.getResult());
-
-        } finally {
-            zipStream.close();
+            entry = zipStream.getNextEntry();
         }
+    
+        zipStream.close();
+    
+        tree.addEndElement();
+        tree.endDocument();
+        result.write(tree.getResult());
     }
 
     private void parseManifest(XdmNode man) {
-        for (XdmNode child : new AxisNodes(man, Axis.CHILD, AxisNodes.SIGNIFICANT)) {
+        for (XdmNode child : new RelevantNodes(runtime, man, Axis.CHILD)) {
             if (XdmNodeKind.ELEMENT == child.getNodeKind()) {
                 if (c_entry.equals(child.getNodeName())) {
                     String name = child.getAttributeValue(_name);
@@ -582,12 +589,9 @@ public class Zip extends DefaultStep {
 
     public void storeJSON(FileToZip file, XdmNode doc, OutputStream out) {
         PrintWriter writer = new PrintWriter(out);
-        try {
-            String json = XMLtoJSON.convert(doc);
-            writer.print(json);
-        } finally { 
-            writer.close();
-        }
+        String json = XMLtoJSON.convert(doc);
+        writer.print(json);
+        writer.close();
     }
 
     public void storeXML(FileToZip file, XdmNode doc, OutputStream out) throws SaxonApiException {
@@ -597,7 +601,7 @@ public class Zip extends DefaultStep {
     }
 
     public Serializer makeSerializer(Hashtable<QName,String> options) {
-        Serializer serializer = runtime.getProcessor().newSerializer();
+        Serializer serializer = new Serializer();
 
         if (options == null) {
             return serializer;

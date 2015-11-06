@@ -2,7 +2,6 @@ package com.xmlcalabash.util;
 
 import net.sf.saxon.s9api.*;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Vector;
@@ -28,10 +27,8 @@ public class XPointer {
     private static final QName _text = new QName("", "text");
 
     private Vector<XPointerScheme> parts = new Vector<XPointerScheme> ();
-    private int readLimit = 0;
 
-    public XPointer(String xpointer, int readLimit) {
-        this.readLimit = readLimit;
+    public XPointer(String xpointer) {
         String pointer = xpointer;
         while (pointer != null) {
             pointer = parse(pointer);
@@ -61,17 +58,13 @@ public class XPointer {
                     result = null;
                     // try the next one
                 }
-
-                if (result != null && result.size() == 0) {
-                    result = null;
-                }
             }
         }
 
         return result;
     }
 
-    public String selectText(BufferedReader stream, int contentLength) {
+    public String selectText(InputStreamReader stream, int contentLength) {
         String result = null;
         RuntimeException except = null;
 
@@ -88,6 +81,11 @@ public class XPointer {
                     // try the next one
                     except = xe;
                     result = null;
+                    try {
+                        stream.reset();
+                    } catch (IOException ioe) {
+                        throw new XProcException(ioe);
+                    }
                 }
             }
         }
@@ -125,15 +123,15 @@ public class XPointer {
                 data = cleanup(data);
 
                 if (_xmlns.equals(name)) {
-                    parts.add(new XPointerXmlnsScheme(name, data, readLimit));
+                    parts.add(new XPointerXmlnsScheme(name, data));
                 } else if (_element.equals(name)) {
-                    parts.add(new XPointerElementScheme(name, data, readLimit));
+                    parts.add(new XPointerElementScheme(name, data));
                 } else if (_xpath.equals(name)) {
-                    parts.add(new XPointerXPathScheme(name, data, readLimit));
+                    parts.add(new XPointerXPathScheme(name, data));
                 } else if (_text.equals(name)) {
-                    parts.add(new XPointerTextScheme(name, data, readLimit));
+                    parts.add(new XPointerTextScheme(name, data));
                 } else {
-                    parts.add(new XPointerScheme(name, data, readLimit));
+                    parts.add(new XPointerScheme(name, data));
                 }
 
                 if ("".equals(rest)) {
@@ -147,7 +145,7 @@ public class XPointer {
                     QName name = schemeName(matcher.group(1));
                     String data = cleanup(matcher.group(2));
 
-                    parts.add(new XPointerScheme(name, data, readLimit));
+                    parts.add(new XPointerScheme(name, data));
 
                     String rest = matcher.group(3);
                     if ("".equals(rest)) {
@@ -159,7 +157,7 @@ public class XPointer {
                 }
             }
         } else if (xpointer.matches("^[\\w:]+\\s*$")) {
-            parts.add(new XPointerScheme(_element, xpointer, readLimit));
+            parts.add(new XPointerScheme(_element, xpointer));
             return null;
         } else {
             throw new XProcException("Unparseable XPointer: " + xpointer);
@@ -226,8 +224,8 @@ public class XPointer {
         protected String prefix = null;
         protected String uri = null;
 
-        public XPointerXmlnsScheme(QName name, String data, int readLimit) {
-            super(name,data, readLimit);
+        public XPointerXmlnsScheme(QName name, String data) {
+            super(name,data);
 
             Pattern scheme = Pattern.compile("([\\w:]+)\\s*=\\s*([^=]+)$");
             Matcher matcher = scheme.matcher(data);
@@ -249,8 +247,8 @@ public class XPointer {
     }
 
     private class XPointerElementScheme extends XPointerScheme {
-        public XPointerElementScheme(QName name, String data, int readLimit) {
-            super(name,data, readLimit);
+        public XPointerElementScheme(QName name, String data) {
+            super(name,data);
         }
 
         public String xpathEquivalent() {
@@ -283,8 +281,8 @@ public class XPointer {
     }
 
     private class XPointerXPathScheme extends XPointerScheme {
-        public XPointerXPathScheme(QName name, String data, int readLimit) {
-            super(name,data, readLimit);
+        public XPointerXPathScheme(QName name, String data) {
+            super(name,data);
         }
 
         public String xpathEquivalent() {
@@ -293,8 +291,8 @@ public class XPointer {
     }
 
     private class XPointerTextScheme extends XPointerScheme {
-        public XPointerTextScheme(QName name, String data, int readLimit) {
-            super(name,data,readLimit);
+        public XPointerTextScheme(QName name, String data) {
+            super(name,data);
         }
 
         public String textEquivalent() {

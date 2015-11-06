@@ -28,7 +28,6 @@ import java.nio.charset.Charset;
 import java.util.Vector;
 import java.util.regex.Pattern;
 
-import com.xmlcalabash.util.MessageFormatter;
 import net.sf.saxon.s9api.Processor;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmNode;
@@ -43,8 +42,6 @@ import com.xmlcalabash.model.Step;
 import com.xmlcalabash.util.HttpUtils;
 import com.xmlcalabash.util.JSONtoXML;
 import com.xmlcalabash.util.XPointer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  *
@@ -53,7 +50,6 @@ import org.slf4j.LoggerFactory;
 public class ReadableDocument implements ReadablePipe {
     private static final String ACCEPT_XML = "application/xml, text/xml, application/xml-external-parsed-entity, text/xml-external-parsed-entity";
     private static final String ACCPET_JSON = "application/json, application/javascript, text/javascript, text/*, */*";
-    private Logger logger = LoggerFactory.getLogger(ReadableDocument.class);
     protected DocumentSequence documents = null;
     protected String uri = null;
     protected XProcRuntime runtime = null;
@@ -103,10 +99,6 @@ public class ReadableDocument implements ReadablePipe {
         reader = step;
     }
 
-    public void setNames(String stepName, String portName) {
-        // nop;
-    }
-
     public boolean moreDocuments() {
         if (!readDoc) {
             readDoc();
@@ -134,8 +126,7 @@ public class ReadableDocument implements ReadablePipe {
         XdmNode doc = documents.get(pos++);
 
         if (reader != null) {
-            logger.trace(MessageFormatter.nodeMessage(reader.getNode(),
-                    reader.getName() + " select read '" + (doc == null ? "null" : doc.getBaseURI()) + "' from " + this));
+            runtime.finest(null, reader.getNode(), reader.getName() + " select read '" + (doc == null ? "null" : doc.getBaseURI()) + "' from " + this);
         }
 
         return doc;
@@ -145,10 +136,9 @@ public class ReadableDocument implements ReadablePipe {
         readDoc = true;
         if (uri != null) {
             try {
-                boolean sameDocumentReference = uri.startsWith("#");
                 // What if this is a directory?
                 URI baseURI = URI.create(base);
-                if (!sameDocumentReference && "file".equalsIgnoreCase(baseURI.resolve(uri).getScheme())) {
+                if ("file".equalsIgnoreCase(baseURI.resolve(uri).getScheme())) {
                     final DataStore store = runtime.getDataStore();
                     store.infoEntry(uri, base, "*/*", new DataInfo() {
                         public void list(URI id, String media, long lastModified)
@@ -226,7 +216,7 @@ public class ReadableDocument implements ReadablePipe {
                 ptr = "element(" + ptr + ")";
             }
 
-            XPointer xptr = new XPointer(ptr, 1024 * 1000); // does this need to be configurable? No, because there can be only one fragid, right?
+            XPointer xptr = new XPointer(ptr);
             Vector<XdmNode> nodes = xptr.selectNodes(runtime, doc);
 
             if (nodes.size() == 1) {

@@ -1,6 +1,5 @@
 package com.xmlcalabash.library;
 
-import com.xmlcalabash.core.XMLCalabash;
 import net.sf.saxon.om.StandardNames;
 import net.sf.saxon.s9api.*;
 import net.sf.saxon.Configuration;
@@ -35,10 +34,6 @@ import java.util.Iterator;
  * Time: 11:06:11 AM
  * To change this template use File | Settings | File Templates.
  */
-
-@XMLCalabash(
-        name = "p:validate-with-schematron",
-        type = "{http://www.w3.org/ns/xproc}validate-with-schematron")
 
 public class ValidateWithSCH extends DefaultStep {
     private static final QName _assert_valid = new QName("", "assert-valid");
@@ -158,7 +153,7 @@ public class ValidateWithSCH extends DefaultStep {
         transformer = exec.load();
 	    for (QName name : params.keySet()) {
              RuntimeValue v = params.get(name);
-             transformer.setParameter(name, v.getUntypedAtomic(runtime));
+             transformer.setParameter(name, new XdmAtomicValue(v.getString()));
         }        
         transformer.setInitialContextNode(sourceXML);
         result = new XdmDestination();
@@ -167,10 +162,6 @@ public class ValidateWithSCH extends DefaultStep {
 
         XdmNode report = result.getXdmNode();
 
-        // Write the report before throwing an exception so that p:log on the validate
-        // step can do something useful.
-        reportPipe.write(report);
-
         boolean failedAsserts = checkFailedAssert(report);
 
         if (failedAsserts && getOption(_assert_valid,false)) {
@@ -178,6 +169,7 @@ public class ValidateWithSCH extends DefaultStep {
         }
 
         resultPipe.write(sourceXML);
+        reportPipe.write(report);
     }
 
     private boolean checkFailedAssert(XdmNode doc) {

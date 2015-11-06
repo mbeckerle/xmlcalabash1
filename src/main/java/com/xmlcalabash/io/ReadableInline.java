@@ -22,23 +22,21 @@ package com.xmlcalabash.io;
 import java.net.URI;
 import java.util.Vector;
 import java.util.HashSet;
+import java.util.logging.Logger;
 
 import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.util.MessageFormatter;
 import net.sf.saxon.s9api.*;
 import com.xmlcalabash.util.S9apiUtils;
 import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.model.Step;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  *
  * @author ndw
  */
 public class ReadableInline implements ReadablePipe {
-    private Logger logger = LoggerFactory.getLogger(ReadableInline.class);
+    private Logger logger = Logger.getLogger(this.getClass().getName());
     private XProcRuntime runtime = null;
     private DocumentSequence documents = null;
     private boolean readSeqOk = false;
@@ -83,6 +81,7 @@ public class ReadableInline implements ReadablePipe {
             XdmNode doc = dest.getXdmNode();
 
             doc = S9apiUtils.removeNamespaces(runtime, doc, excludeNS, true);
+            runtime.finest(null, null, "Instantiate a ReadableInline");
             documents.add(doc);
         } catch (SaxonApiException sae) {
             throw new XProcException(sae);
@@ -121,16 +120,11 @@ public class ReadableInline implements ReadablePipe {
         reader = step;
     }
 
-    public void setNames(String stepName, String portName) {
-        // nop;
-    }
-
     public XdmNode read() throws SaxonApiException {
         XdmNode doc = documents.get(pos++);
 
         if (reader != null) {
-            logger.trace(MessageFormatter.nodeMessage(reader.getNode(),
-                    reader.getName() + " read '" + (doc == null ? "null" : doc.getBaseURI()) + "' from " + this));
+            runtime.finest(null, reader.getNode(), reader.getName() + " read '" + (doc == null ? "null" : doc.getBaseURI()) + "' from " + this);
         }
         
         return doc;

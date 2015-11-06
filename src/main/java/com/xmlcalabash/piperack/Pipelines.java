@@ -63,7 +63,6 @@ public class Pipelines extends BaseResource {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     protected Representation post(Representation entity, Variant variant) {
         Form form = getQuery();
         Random random = new Random();
@@ -92,7 +91,8 @@ public class Pipelines extends BaseResource {
 
         Calendar expires = GregorianCalendar.getInstance();
         if (seconds >= 0) {
-            long extime = expires.getTimeInMillis() + (seconds*1000);
+            long millis = seconds;
+            long extime = expires.getTimeInMillis() + (millis*1000);
             expires.setTimeInMillis(extime);
         } else {
             expires.setTimeInMillis(Long.MAX_VALUE);
@@ -101,11 +101,7 @@ public class Pipelines extends BaseResource {
         XProcRuntime runtime = new XProcRuntime(getConfiguration());
 
         try {
-            InputSource is = new InputSource(entity.getStream());
-            String base = getHostRef().toString();
-            is.setSystemId(base + "/" + name);
-
-            XdmNode doc = runtime.parse(is);
+            XdmNode doc = runtime.parse(new InputSource(entity.getStream()));
             XPipeline pipeline = runtime.use(doc);
             getPipelines().put(id, new PipelineConfiguration(runtime, pipeline, expires));
         } catch (Exception e) {

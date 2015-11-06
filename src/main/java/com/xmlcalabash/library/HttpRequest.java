@@ -34,8 +34,6 @@ import java.util.Vector;
 
 import javax.xml.XMLConstants;
 
-import com.xmlcalabash.core.XMLCalabash;
-import com.xmlcalabash.util.*;
 import net.sf.saxon.s9api.Axis;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
@@ -92,11 +90,14 @@ import com.xmlcalabash.io.DataStore.DataReader;
 import com.xmlcalabash.io.ReadablePipe;
 import com.xmlcalabash.io.WritablePipe;
 import com.xmlcalabash.runtime.XAtomicStep;
-
-
-@XMLCalabash(
-        name = "p:http-request",
-        type = "{http://www.w3.org/ns/xproc}http-request")
+import com.xmlcalabash.util.Base64;
+import com.xmlcalabash.util.HttpUtils;
+import com.xmlcalabash.util.JSONtoXML;
+import com.xmlcalabash.util.MIMEReader;
+import com.xmlcalabash.util.RelevantNodes;
+import com.xmlcalabash.util.S9apiUtils;
+import com.xmlcalabash.util.TreeWriter;
+import com.xmlcalabash.util.XMLtoJSON;
 
 public class HttpRequest extends DefaultStep {
     private static final QName c_request = new QName("c", XProcConstants.NS_XPROC_STEP, "request");
@@ -408,7 +409,7 @@ public class HttpRequest extends DefaultStep {
                         InputStream bodyStream = httpResult.getEntity().getContent();
                         readBodyContent(tree, bodyStream, httpResult);
                     } else {
-                        throw XProcException.dynamicError(6, "Reading HTTP response on " + getStep().getName());
+                        throw XProcException.dynamicError(6);
                     }
                 }
             }
@@ -678,7 +679,7 @@ public class HttpRequest extends DefaultStep {
         MessageBytes byteContent = new MessageBytes();
         byteContent.append("This is a multipart message.\r\n");
         //String postContent = "This is a multipart message.\r\n";
-        for (XdmNode body : new AxisNodes(multipart, Axis.CHILD, AxisNodes.SIGNIFICANT)) {
+        for (XdmNode body : new RelevantNodes(runtime, multipart, Axis.CHILD)) {
             if (!XProcConstants.c_body.equals(body.getNodeName())) {
                 throw new XProcException(step.getNode(), "A c:multipart may only contain c:body elements.");
             }
@@ -1110,10 +1111,8 @@ public class HttpRequest extends DefaultStep {
             store.readEntry(href, base, "application/xml, text/xml, */*", overrideContentType, new DataReader() {
                 public void load(URI id, String contentType, InputStream bodyStream, long len)
                         throws IOException {
-                    // Get the default charset from the file.encoding system property.
-                    // Fall back to UTF-8 if that's not set.
-                    String defCharset = System.getProperty("file.encoding","UTF-8");
-                    String charset = HttpUtils.getCharset(contentType, defCharset);
+                    // FIXME: Is ISO-8859-1 the right default?
+                    String charset = HttpUtils.getCharset(contentType, "ISO-8859-1");
 
                     TreeWriter tree = new TreeWriter(runtime);
                     tree.startDocument(id);

@@ -27,8 +27,6 @@ import java.io.PrintWriter;
 import java.net.URI;
 import java.util.zip.GZIPOutputStream;
 
-import com.xmlcalabash.core.XMLCalabash;
-import com.xmlcalabash.util.*;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.Serializer;
@@ -43,18 +41,19 @@ import com.xmlcalabash.io.ReadablePipe;
 import com.xmlcalabash.io.WritablePipe;
 import com.xmlcalabash.model.RuntimeValue;
 import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.Base64;
+import com.xmlcalabash.util.JSONtoXML;
+import com.xmlcalabash.util.S9apiUtils;
+import com.xmlcalabash.util.TreeWriter;
+import com.xmlcalabash.util.XMLtoJSON;
 
 /**
  *
  * @author ndw
  */
-
-@XMLCalabash(
-        name = "p:store",
-        type = "{http://www.w3.org/ns/xproc}store")
-
 public class Store extends DefaultStep {
     private static final QName _href = new QName("href");
+    private static final QName _encoding = new QName("encoding");
     private static final QName _content_type = new QName("content-type");
     private static final QName c_encoding = new QName("c", XProcConstants.NS_XPROC_STEP, "encoding");
     private static final QName c_body = new QName("c", XProcConstants.NS_XPROC_STEP, "body");
@@ -89,17 +88,18 @@ public class Store extends DefaultStep {
     }
 
     public void run() throws SaxonApiException {
-        RuntimeValue hrefOpt = getOption(_href);
-        super.run(": href=" + hrefOpt.getValue().toString());
+        super.run();
 
         if (runtime.getSafeMode()) {
             throw XProcException.dynamicError(21);
         }
 
+        RuntimeValue hrefOpt = getOption(_href);
+
         XdmNode doc = source.read();
 
         if (doc == null || source.moreDocuments()) {
-            throw XProcException.dynamicError(6, "Reading source on " + getStep().getName());
+            throw XProcException.dynamicError(6);
         }
 
         String href = null, base = null;
@@ -109,19 +109,13 @@ public class Store extends DefaultStep {
         }
 
         if (method == CompressionMethod.GZIP) {
-            logger.trace(MessageFormatter.nodeMessage(hrefOpt == null ? null : hrefOpt.getNode(),
-                    "Gzipping" + (href == null ? "" : " to \"" + href + "\".")));
+            finer(hrefOpt == null ? null : hrefOpt.getNode(), "Gzipping" + (href == null ? "" : " to \"" + href + "\"."));
         } else {
-            logger.trace(MessageFormatter.nodeMessage(hrefOpt.getNode(), "Storing to \"" + href + "\"."));
+            finer(hrefOpt.getNode(), "Storing to \"" + href + "\".");
         }
-
-        XdmNode root = S9apiUtils.getDocumentElement(doc);
 
         String decode = step.getExtensionAttribute(cx_decode);
-        if (decode == null) {
-            decode = root.getAttributeValue(cx_decode);
-        }
-
+        XdmNode root = S9apiUtils.getDocumentElement(doc);
         String contentType = root.getAttributeValue(_content_type);
         URI contentId;
         if (("true".equals(decode) || "1".equals(decode) || method != CompressionMethod.NONE)
@@ -174,17 +168,16 @@ public class Store extends DefaultStep {
                 ByteArrayOutputStream baos;
                 baos = new ByteArrayOutputStream();
                 outstr = baos;
-                try {
-                    if (method == CompressionMethod.GZIP) {
-                        GZIPOutputStream gzout = new GZIPOutputStream(outstr);
-                        outstr = gzout;
-                    }
 
-                    serializer.setOutputStream(outstr);
-                    S9apiUtils.serialize(runtime, doc, serializer);
-                } finally {
-                    outstr.close();
+                if (method == CompressionMethod.GZIP) {
+                    GZIPOutputStream gzout = new GZIPOutputStream(outstr);
+                    outstr = gzout;
                 }
+
+                serializer.setOutputStream(outstr);
+                S9apiUtils.serialize(runtime, doc, serializer);
+                outstr.close();
+
                 returnData(baos);
                 return null;
             } else {
@@ -229,16 +222,15 @@ public class Store extends DefaultStep {
                 ByteArrayOutputStream baos = null;
                 baos = new ByteArrayOutputStream();
                 outstr = baos;
-                try {
-                    if (method == CompressionMethod.GZIP) {
-                        GZIPOutputStream gzout = new GZIPOutputStream(outstr);
-                        outstr = gzout;
-                    }
 
-                    outstr.write(decoded);
-                } finally {
-                    outstr.close();
+                if (method == CompressionMethod.GZIP) {
+                    GZIPOutputStream gzout = new GZIPOutputStream(outstr);
+                    outstr = gzout;
                 }
+
+                outstr.write(decoded);
+                outstr.close();
+
                 returnData(baos);
                 return null;
             } else {
@@ -261,38 +253,41 @@ public class Store extends DefaultStep {
         }
     }
 
-    private URI storeText(XdmNode doc, String href, String base, String media) {
-        final Serializer serializer = makeSerializer();
-        serializer.setOutputProperty(Serializer.Property.METHOD, "text");
-
+    private URI storeText(XdmNode doc, String href, String base,
+            String media) {
         if (media == null) {
             media = "text/plain";
         }
 
         try {
-            final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            OutputStream outstr = baos;
-
-            if (method == CompressionMethod.GZIP) {
-                GZIPOutputStream gzout = new GZIPOutputStream(outstr);
-                outstr = gzout;
-            }
-
-            serializer.setOutputStream(outstr);
-            try {
-                S9apiUtils.serialize(runtime, doc, serializer);
-            } catch (SaxonApiException e) {
-                throw new IOException(e);
-            }
+            final String text = doc.getStringValue();
 
             if (href == null) {
+                OutputStream outstr = null;
+                ByteArrayOutputStream baos = null;
+                baos = new ByteArrayOutputStream();
+                outstr = baos;
+
+                if (method == CompressionMethod.GZIP) {
+                    GZIPOutputStream gzout = new GZIPOutputStream(outstr);
+                    outstr = gzout;
+                }
+
+                outstr.write(text.getBytes());
+                outstr.close();
+
                 returnData(baos);
                 return null;
             } else {
                 DataStore store = runtime.getDataStore();
                 return store.writeEntry(href, base, media, new DataWriter() {
                     public void store(OutputStream outstr) throws IOException {
-                        outstr.write(baos.toByteArray());
+                        if (method == CompressionMethod.GZIP) {
+                            GZIPOutputStream gzout = new GZIPOutputStream(outstr);
+                            outstr = gzout;
+                        }
+
+                        outstr.write(text.getBytes());
                     }
                 });
             }
@@ -316,20 +311,18 @@ public class Store extends DefaultStep {
 
                 baos = new ByteArrayOutputStream();
                 outstr = baos;
-                try {
-                    if (method == CompressionMethod.GZIP) {
-                        GZIPOutputStream gzout = new GZIPOutputStream(outstr);
-                        outstr = gzout;
-                    }
 
-                    PrintWriter writer = new PrintWriter(outstr);
-                    String json = XMLtoJSON.convert(doc);
-                    writer.print(json);
-                } finally {
-                    // no need to close both 
-                    // writer.close();
-                    outstr.close();
+                if (method == CompressionMethod.GZIP) {
+                    GZIPOutputStream gzout = new GZIPOutputStream(outstr);
+                    outstr = gzout;
                 }
+
+                PrintWriter writer = new PrintWriter(outstr);
+                String json = XMLtoJSON.convert(doc);
+                writer.print(json);
+                writer.close();
+                outstr.close();
+
                 returnData(baos);
                 return null;
             } else {
@@ -344,9 +337,7 @@ public class Store extends DefaultStep {
                         PrintWriter writer = new PrintWriter(outstr);
                         String json = XMLtoJSON.convert(doc);
                         writer.print(json);
-                        // No need to close writer here - the underlying 
-                        // outstr gets closed by the DataStore implementation 
-                        // writer.close();
+                        writer.close();
                     }
                 });
             }

@@ -10,7 +10,6 @@ import com.xmlcalabash.model.Step;
 import com.xmlcalabash.model.RuntimeValue;
 import com.xmlcalabash.model.Variable;
 import com.xmlcalabash.model.Option;
-import com.xmlcalabash.util.MessageFormatter;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmNode;
 import net.sf.saxon.s9api.QName;
@@ -55,7 +54,7 @@ public class XForEach extends XCompoundStep {
     }
     
     public void run() throws SaxonApiException {
-        logger.trace("Running p:for-each " + step.getName());
+        fine(null, "Running p:for-each " + step.getName());
 
         XProcData data = runtime.getXProcData();
         data.openFrame(this);
@@ -76,8 +75,8 @@ public class XForEach extends XCompoundStep {
         for (ReadablePipe is_reader : inputs.get(iport)) {
             while (is_reader.moreDocuments()) {
                 XdmNode is_doc = is_reader.read();
-                logger.trace(MessageFormatter.nodeMessage(step.getNode(), "Input copy from " + is_reader));
-                logger.trace(MessageFormatter.nodeMessage(step.getNode(), is_doc.toString()));
+                finest(step.getNode(), "Input copy from " + is_reader);
+                finest(step.getNode(), is_doc.toString());
                 nodes.add(is_doc);
                 sequenceLength++;
             }
@@ -92,7 +91,7 @@ public class XForEach extends XCompoundStep {
                 // Setup the current port before we compute variables!
                 current.resetWriter();
                 current.write(is_doc);
-                logger.trace(MessageFormatter.nodeMessage(step.getNode(), "Copy to current"));
+                finest(step.getNode(), "Copy to current");
 
                 sequencePosition++;
                 runtime.getXProcData().setIterationPosition(sequencePosition);
@@ -134,13 +133,13 @@ public class XForEach extends XCompoundStep {
                                 XdmNode doc = reader.read();
                                 pipe.write(doc);
                                 docsCopied++;
-                                logger.trace(MessageFormatter.nodeMessage(step.getNode(), "Output copy from " + reader + " to " + pipe));
+                                finest(step.getNode(), "Output copy from " + reader + " to " + pipe);
                             }
                             reader.resetReader();
                         }
 
                         if (docsCopied != 1 && !seqOk) {
-                            throw XProcException.dynamicError(6, "Writing to " + wport + " on " + getStep().getName());
+                            throw XProcException.dynamicError(6);
                         }
                     }
                 }
@@ -150,7 +149,6 @@ public class XForEach extends XCompoundStep {
                 }
             }
 
-        } finally {
             for (String port : inputs.keySet()) {
                 if (port.startsWith("|")) {
                     String wport = port.substring(1);
@@ -158,6 +156,7 @@ public class XForEach extends XCompoundStep {
                     pipe.close(); // Indicate that we're done
                 }
             }
+        } finally {
             runtime.finish(this);
             data.closeFrame();
         }

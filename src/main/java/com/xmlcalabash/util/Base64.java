@@ -1,8 +1,5 @@
 package com.xmlcalabash.util;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 /**
  * <p>Encodes and decodes to and from Base64 notation.</p>
  * <p>Homepage: <a href="http://iharder.net/base64">http://iharder.net/base64</a>.</p>
@@ -26,9 +23,6 @@ import org.slf4j.LoggerFactory;
  * Change Log:
  * </p>
  * <ul>
- *  <li> PATCH - Fixed potential NullPointerExceptions, and exceptions that
- *      occur while closing a resource are now logged. All changes in this
- *      patch are marked with PATCH in the code below.</li>
  *  <li>v2.2.2 - Fixed encodeFileToFile and decodeFileToFile to use the
  *   Base64.InputStream class to encode and decode on the fly which uses
  *   less memory than encoding/decoding an entire file into memory before writing.</li>
@@ -484,24 +478,6 @@ public class Base64
     }   // end encode3to4
 
 
-    
-    // -------------------------- BEGIN PATCH ---------------------------------
-    private static final Logger LOG = LoggerFactory.getLogger(Base64.class.getName());
-    /** 
-     * Closes the given Closeable, checking for null, 
-     * logging any Exception that occurs in the process. 
-     */
-    private static void closeOrLog(java.io.Closeable c) {
-        if (c != null) {
-            try {
-                c.close();
-            } catch (Exception e) {
-                LOG.debug("Error closing resource", e);
-            }
-        }
-    }
-    // ------------------------- END PATCH --------------------------------
-    
 
     /**
      * Serializes an object and returns the Base64-encoded
@@ -580,16 +556,10 @@ public class Base64
         }   // end catch
         finally
         {
-            // ----------------------- BEGIN PATCH ----------------------------
-//            try{ oos.close();   } catch( Exception e ){}
-//            try{ gzos.close();  } catch( Exception e ){}
-//            try{ b64os.close(); } catch( Exception e ){}
-//            try{ baos.close();  } catch( Exception e ){}
-            closeOrLog(oos);
-            closeOrLog(gzos);
-            closeOrLog(b64os);
-            closeOrLog(baos);
-            // ----------------------- END PATCH -----------------------------
+            try{ oos.close();   } catch( Exception e ){}
+            try{ gzos.close();  } catch( Exception e ){}
+            try{ b64os.close(); } catch( Exception e ){}
+            try{ baos.close();  } catch( Exception e ){}
         }   // end finally
 
         // Return value according to relevant encoding.
@@ -706,7 +676,7 @@ public class Base64
                 gzos  = new java.util.zip.GZIPOutputStream( b64os );
 
                 gzos.write( source, off, len );
-//                gzos.close();
+                gzos.close();
             }   // end try
             catch( java.io.IOException e )
             {
@@ -715,14 +685,9 @@ public class Base64
             }   // end catch
             finally
             {
-                // ----------------------- BEGIN PATCH ---------------------
-//                try{ gzos.close();  } catch( Exception e ){}
-//                try{ b64os.close(); } catch( Exception e ){}
-//                try{ baos.close();  } catch( Exception e ){}
-                closeOrLog(gzos);
-                closeOrLog(b64os);
-                closeOrLog(baos);
-                // ----------------------- END PATCH -----------------------
+                try{ gzos.close();  } catch( Exception e ){}
+                try{ b64os.close(); } catch( Exception e ){}
+                try{ baos.close();  } catch( Exception e ){}
             }   // end finally
 
             // Return value according to relevant encoding.
@@ -1019,14 +984,9 @@ public class Base64
                 }   // end catch
                 finally
                 {
-                    // ----------------------- BEGIN PATCH --------------------
-//                    try{ baos.close(); } catch( Exception e ){}
-//                    try{ gzis.close(); } catch( Exception e ){}
-//                    try{ bais.close(); } catch( Exception e ){}
-                    closeOrLog(baos);
-                    closeOrLog(gzis);
-                    closeOrLog(bais);
-                    // ----------------------- END PATCH -----------------------
+                    try{ baos.close(); } catch( Exception e ){}
+                    try{ gzis.close(); } catch( Exception e ){}
+                    try{ bais.close(); } catch( Exception e ){}
                 }   // end finally
 
             }   // end if: gzipped
@@ -1074,12 +1034,8 @@ public class Base64
         }   // end catch
         finally
         {
-            // ----------------------- BEGIN PATCH --------------------
-//            try{ bais.close(); } catch( Exception e ){}
-//            try{ ois.close();  } catch( Exception e ){}
-            closeOrLog(bais);
-            closeOrLog(ois);
-            // ----------------------- END PATCH -----------------------
+            try{ bais.close(); } catch( Exception e ){}
+            try{ ois.close();  } catch( Exception e ){}
         }   // end finally
 
         return obj;
@@ -1114,10 +1070,7 @@ public class Base64
         }   // end catch: IOException
         finally
         {
-            // ----------------------- BEGIN PATCH --------------------
-//            try{ bos.close(); } catch( Exception e ){}
-            closeOrLog(bos);
-            // ----------------------- END PATCH -----------------------
+            try{ bos.close(); } catch( Exception e ){}
         }   // end finally
 
         return success;
@@ -1150,10 +1103,7 @@ public class Base64
         }   // end catch: IOException
         finally
         {
-            // ----------------------- BEGIN PATCH --------------------
-//            try{ bos.close(); } catch( Exception e ){}
-            closeOrLog(bos);
-            // ----------------------- END PATCH -----------------------
+                try{ bos.close(); } catch( Exception e ){}
         }   // end finally
 
         return success;
@@ -1211,10 +1161,7 @@ public class Base64
         }   // end catch: IOException
         finally
         {
-            // ----------------------- BEGIN PATCH --------------------
-//            try{ bis.close(); } catch( Exception e) {}
-            closeOrLog(bis);
-            // ----------------------- END PATCH -----------------------
+            try{ bis.close(); } catch( Exception e) {}
         }   // end finally
 
         return decodedData;
@@ -1262,10 +1209,7 @@ public class Base64
         }   // end catch: IOException
         finally
         {
-            // ----------------------- BEGIN PATCH --------------------
-//            try{ bis.close(); } catch( Exception e) {}
-            closeOrLog(bis);
-            // ----------------------- END PATCH -----------------------
+            try{ bis.close(); } catch( Exception e) {}
         }   // end finally
 
         return encodedData;
@@ -1302,12 +1246,8 @@ public class Base64
         } catch( java.io.IOException exc ){
             exc.printStackTrace();
         } finally{
-            // ----------------------- BEGIN PATCH --------------------
-//            try{ in.close();  } catch( Exception exc ){}
-//            try{ out.close(); } catch( Exception exc ){}
-            closeOrLog(in);
-            closeOrLog(out);
-            // ----------------------- END PATCH -----------------------
+            try{ in.close();  } catch( Exception exc ){}
+            try{ out.close(); } catch( Exception exc ){}
         }   // end finally
 
         return success;
@@ -1343,12 +1283,8 @@ public class Base64
         } catch( java.io.IOException exc ){
             exc.printStackTrace();
         } finally{
-            // ----------------------- BEGIN PATCH --------------------
-//            try{ in.close();  } catch( Exception exc ){}
-//            try{ out.close(); } catch( Exception exc ){}
-            closeOrLog(in);
-            closeOrLog(out);
-            // ----------------------- END PATCH -----------------------
+            try{ in.close();  } catch( Exception exc ){}
+            try{ out.close(); } catch( Exception exc ){}
         }   // end finally
 
         return success;

@@ -31,6 +31,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Logger;
 
 import com.xmlcalabash.core.XProcConfiguration;
 import com.xmlcalabash.core.XProcConstants;
@@ -42,7 +43,6 @@ import com.xmlcalabash.io.WritableDocument;
 import com.xmlcalabash.model.RuntimeValue;
 import com.xmlcalabash.model.Serialization;
 import com.xmlcalabash.runtime.XPipeline;
-import com.xmlcalabash.util.Closer;
 import com.xmlcalabash.util.Input;
 import com.xmlcalabash.util.Output;
 import com.xmlcalabash.util.Output.Kind;
@@ -55,8 +55,6 @@ import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.Serializer;
 import net.sf.saxon.s9api.XdmNode;
 import net.sf.saxon.s9api.XdmSequenceIterator;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.xml.sax.InputSource;
 
 import static com.xmlcalabash.core.XProcConstants.c_data;
@@ -71,9 +69,8 @@ public class Main {
     private static QName _code = new QName("code");
     private static int exitStatus = 0;
     private XProcRuntime runtime = null;
-    private Logger logger = LoggerFactory.getLogger(Main.class);
+    private Logger logger = Logger.getLogger(this.getClass().getName());
     private boolean debug = false;
-    private int chaseMemoryLeaks = 0;
 
     /**
      * @param args the command line arguments
@@ -81,9 +78,7 @@ public class Main {
     public static void main(String[] args) throws IOException {
         Main main = new Main();
         main.run(args);
-        if (exitStatus != 0) {
-            System.exit(exitStatus);
-        }
+        System.exit(exitStatus);
     }
 
     public void run(String[] args) throws IOException {
@@ -97,32 +92,22 @@ public class Main {
 
         try {
             XProcConfiguration config = userArgs.createConfiguration();
-            runtime = new XProcRuntime(config);
-            debug = config.debug;
 
-            if (chaseMemoryLeaks != 0) {
-                while (chaseMemoryLeaks > 0) {
-                    System.err.println("Checking for memory leaks, running " + chaseMemoryLeaks);
-                    run(userArgs, config);
-                    //System.out.println("Hit enter to run again: ");
-                    //System.in.read();
-                    chaseMemoryLeaks--;
-                }
-            } else {
-                if (run(userArgs, config)) {
-                    // It's just sooo much nicer if there's a newline at the end.
-                    System.out.println();
-                }
+            if (run(userArgs, config)) {
+                // It's just sooo much nicer if there's a newline at the end.
+                System.out.println();
             }
 
+            // Here all memory should be freed by the next gc, right?
+            runtime.close();
         } catch (UnsupportedOperationException uoe) {
             usage();
         } catch (XProcException err) {
             exitStatus = 1;
             if (err.getErrorCode() != null) {
-                logger.error(errorMessage(err.getErrorCode()));
+                error(logger, null, errorMessage(err.getErrorCode()), err.getErrorCode());
             } else {
-                logger.error(err.getMessage());
+                error(logger, null, err.toString(), null);
             }
 
             Throwable cause = err.getCause();
@@ -131,47 +116,29 @@ public class Main {
             }
 
             if (cause != null) {
-                logger.error("Underlying exception: " + cause.getMessage());
+                error(logger, null, "Underlying exception: " + cause, null);
             }
 
-            logger.debug(err.getMessage(), err);
+            if (debug) {
+                err.printStackTrace();
+            }
         } catch (Exception err) {
             exitStatus = 1;
-            logger.error("Pipeline failed: " + err.getMessage());
+            error(logger, null, "Pipeline failed: " + err.toString(), null);
             if (err.getCause() != null) {
                 Throwable cause = err.getCause();
-                logger.error("Underlying exception: " + cause.getMessage());
+                error(logger, null, "Underlying exception: " + cause, null);
             }
-            logger.debug(err.getMessage(), err);
-        } finally {
-            // Here all memory should be freed by the next gc, right?
-            if (runtime != null) {
-                runtime.close();
-            }
-        }
-    }
-
-    // This method runs the pipeline but doesn't catch any exceptions.
-    // The idea is you could call this from some other object and catch (or not) the
-    // exceptions yourself.
-    public void runMethod(String[] args) throws IOException, SaxonApiException, URISyntaxException {
-        UserArgs userArgs = new ParseArgs().parse(args);
-
-        XProcConfiguration config = userArgs.createConfiguration();
-        runtime = new XProcRuntime(config);
-        debug = config.debug;
-
-        try {
-            run(userArgs, config);
-        } finally {
-            // Here all memory should be freed by the next gc, right?
-            if (runtime != null) {
-                runtime.close();
+            if (debug) {
+                err.printStackTrace();
             }
         }
     }
 
     boolean run(UserArgs userArgs, XProcConfiguration config) throws SaxonApiException, IOException, URISyntaxException {
+        runtime = new XProcRuntime(config);
+        debug = config.debug;
+
         if (userArgs.isShowVersion()) {
             XProcConfiguration.showVersion(runtime);
         }
@@ -186,7 +153,7 @@ public class Main {
             if (debug) {
                 System.err.println("Implicit pipeline:");
 
-                Serializer serializer = runtime.getProcessor().newSerializer();
+                Serializer serializer = new Serializer();
 
                 serializer.setOutputProperty(Serializer.Property.INDENT, "yes");
                 serializer.setOutputProperty(Serializer.Property.METHOD, "xml");
@@ -262,11 +229,8 @@ public class Main {
 
                                 case INPUT_STREAM:
                                     InputStream inputStream = input.getInputStream();
-                                    try {
-                                        doc = runtime.parse(new InputSource(inputStream));
-                                    } finally {
-                                        Closer.close(inputStream);
-                                    }
+                                    doc = runtime.parse(new InputSource(inputStream));
+                                    inputStream.close();
                                     break;
 
                                 default:
@@ -284,12 +248,9 @@ public class Main {
 
                                 case INPUT_STREAM:
                                     InputStream inputStream = input.getInputStream();
-                                    try {
-                                        rd = new ReadableData(runtime, c_data, inputStream, input.getContentType());
-                                        doc = rd.read();
-                                    } finally {
-                                        Closer.close(inputStream);
-                                    }
+                                    rd = new ReadableData(runtime, c_data, inputStream, input.getContentType());
+                                    doc = rd.read();
+                                    inputStream.close();
                                     break;
 
                                 default:
@@ -374,16 +335,16 @@ public class Main {
             }
 
             if ((output == null) || ((output.getKind() == OUTPUT_STREAM) && System.out.equals(output.getOutputStream()))) {
-                logger.trace("Copy output from " + port + " to stdout");
+                finest(logger, null, "Copy output from " + port + " to stdout");
             } else {
                 switch (output.getKind()) {
                     case URI:
-                        logger.trace("Copy output from " + port + " to " + output.getUri());
+                        finest(logger, null, "Copy output from " + port + " to " + output.getUri());
                         break;
 
                     case OUTPUT_STREAM:
                         String outputStreamClassName = output.getOutputStream().getClass().getName();
-                        logger.trace("Copy output from " + port + " to " + outputStreamClassName + " stream");
+                        finest(logger, null, "Copy output from " + port + " to " + outputStreamClassName + " stream");
                         break;
 
                     default:
@@ -395,6 +356,8 @@ public class Main {
 
             if (serial == null) {
                 // Use the configuration options
+                // FIXME: should each of these be considered separately?
+                // FIXME: should there be command-line options to override these settings?
                 serial = new Serialization(runtime, pipeline.getNode()); // The node's a hack
                 for (String name : config.serializationOptions.keySet()) {
                     String value = config.serializationOptions.get(name);
@@ -416,37 +379,6 @@ public class Main {
                     if ("standalone".equals(name)) serial.setStandalone(value);
                     if ("version".equals(name)) serial.setVersion(value);
                 }
-            }
-
-            // Command line values override pipeline or configuration specified values
-            for (String name: new String[] {
-                    "byte-order-mark", "escape-uri-attributes", "include-content-type",
-                    "indent", "omit-xml-declaration", "undeclare-prefixes", "method",
-                    "doctype-public", "doctype-system", "encoding", "media-type",
-                    "normalization-form", "standalone", "version" }) {
-                String value = userArgs.getSerializationParameter(port, name);
-                if (value == null) {
-                    value = userArgs.getSerializationParameter(name);
-                    if (value == null) {
-                        continue;
-                    }
-                }
-
-                if ("byte-order-mark".equals(name)) serial.setByteOrderMark("true".equals(value));
-                if ("escape-uri-attributes".equals(name)) serial.setEscapeURIAttributes("true".equals(value));
-                if ("include-content-type".equals(name)) serial.setIncludeContentType("true".equals(value));
-                if ("indent".equals(name)) serial.setIndent("true".equals(value));
-                if ("omit-xml-declaration".equals(name)) serial.setOmitXMLDeclaration("true".equals(value));
-                if ("undeclare-prefixes".equals(name)) serial.setUndeclarePrefixes("true".equals(value));
-                if ("method".equals(name)) serial.setMethod(new QName("", value));
-                // N.B. cdata-section-elements isn't allowed
-                if ("doctype-public".equals(name)) serial.setDoctypePublic(value);
-                if ("doctype-system".equals(name)) serial.setDoctypeSystem(value);
-                if ("encoding".equals(name)) serial.setEncoding(value);
-                if ("media-type".equals(name)) serial.setMediaType(value);
-                if ("normalization-form".equals(name)) serial.setNormalizationForm(value);
-                if ("standalone".equals(name)) serial.setStandalone(value);
-                if ("version".equals(name)) serial.setVersion(value);
             }
 
             // I wonder if there's a better way...
@@ -472,15 +404,13 @@ public class Main {
                 }
             }
 
-            try {
-                ReadablePipe rpipe = pipeline.readFrom(port);
-                while (rpipe.moreDocuments()) {
-                    wd.write(rpipe.read());
-                }
-            } finally {
-                if (output != null) {
-                    wd.close();
-                }
+            ReadablePipe rpipe = pipeline.readFrom(port);
+            while (rpipe.moreDocuments()) {
+                wd.write(rpipe.read());
+            }
+
+            if (output != null) {
+                wd.close();
             }
         }
 
@@ -509,17 +439,12 @@ public class Main {
         }
 
         BufferedReader br = new BufferedReader(new InputStreamReader(instream));
-        try {
-            String line = null;
-            while ((line = br.readLine()) != null) {
-                System.err.println(line);
-            }
-        } finally {
-            // BufferedReader.close also closes the underlying stream, so only 
-            // one close() call is necessary.
-            // instream.close();
-            br.close();
+        String line = null;
+        while ((line = br.readLine()) != null) {
+            System.err.println(line);
         }
+        instream.close();
+        br.close();
         System.exit(1);
     }
 
@@ -537,4 +462,49 @@ public class Main {
         }
         return "Unknown error";
     }
+
+    // ===========================================================
+    // Logging methods repeated here so that they don't rely
+    // on the XProcRuntime constructor succeeding.
+
+    private String message(XdmNode node, String message) {
+        String baseURI = "(unknown URI)";
+        int lineNumber = -1;
+
+        if (node != null) {
+            baseURI = node.getBaseURI().toASCIIString();
+            lineNumber = node.getLineNumber();
+            return baseURI + ":" + lineNumber + ": " + message;
+        } else {
+            return message;
+        }
+
+    }
+
+    public void error(Logger logger, XdmNode node, String message, QName code) {
+        logger.severe(message(node, message));
+    }
+
+    public void warning(Logger logger, XdmNode node, String message) {
+        logger.warning(message(node, message));
+    }
+
+    public void info(Logger logger, XdmNode node, String message) {
+        logger.info(message(node, message));
+    }
+
+    public void fine(Logger logger, XdmNode node, String message) {
+        logger.fine(message(node, message));
+    }
+
+    public void finer(Logger logger, XdmNode node, String message) {
+        logger.finer(message(node, message));
+    }
+
+    public void finest(Logger logger, XdmNode node, String message) {
+        logger.finest(message(node, message));
+    }
+
+    // ===========================================================
+
 }

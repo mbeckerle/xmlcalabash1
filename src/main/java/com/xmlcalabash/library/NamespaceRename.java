@@ -19,7 +19,6 @@
 
 package com.xmlcalabash.library;
 
-import com.xmlcalabash.core.XMLCalabash;
 import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.util.ProcessMatchingNodes;
@@ -46,11 +45,6 @@ import net.sf.saxon.type.SimpleType;
  *
  * @author ndw
  */
-
-@XMLCalabash(
-        name = "p:namespace-rename",
-        type = "{http://www.w3.org/ns/xproc}namespace-rename")
-
 public class NamespaceRename extends DefaultStep implements ProcessMatchingNodes {
     private static final QName _from = new QName("from");
     private static final QName _to = new QName("to");
@@ -111,7 +105,7 @@ public class NamespaceRename extends DefaultStep implements ProcessMatchingNodes
         }
 
         if (source.moreDocuments()) {
-            throw XProcException.dynamicError(6, "Reading source on " + getStep().getName());
+            throw XProcException.dynamicError(6);
         }
     }
 

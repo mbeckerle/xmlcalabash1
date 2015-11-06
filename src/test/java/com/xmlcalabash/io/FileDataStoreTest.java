@@ -30,8 +30,7 @@ public class FileDataStoreTest extends TestCase {
 			}
 		});
 		store.readEntry("file.txt", tmp, "text/plain", null, new DataReader() {
-			public void load(URI id, String media, InputStream content, long len)
-					throws IOException {
+			public void load(URI id, String media, InputStream content, long len) throws IOException {
 				byte[] buf = new byte[1024];
 				assertEquals("content", new String(buf, 0, content.read(buf)));
 			}
@@ -46,14 +45,12 @@ public class FileDataStoreTest extends TestCase {
 			}
 		});
 		store.infoEntry(file.getPath(), tmp, "text/plain", new DataInfo() {
-			public void list(URI id, String media, long lastModified)
-					throws IOException {
+			public void list(URI id, String media, long lastModified) throws IOException {
 				assertEquals("text/plain", media);
 			}
 		});
 		store.readEntry(file.getPath(), tmp, "text/plain", null, new DataReader() {
-			public void load(URI id, String media, InputStream content, long len)
-					throws IOException {
+			public void load(URI id, String media, InputStream content, long len) throws IOException {
 				byte[] buf = new byte[1024];
 				assertEquals("content", new String(buf, 0, content.read(buf)));
 			}
@@ -72,8 +69,7 @@ public class FileDataStoreTest extends TestCase {
 		}
 		String uri = file.toURI().toASCIIString();
 		store.readEntry(uri, uri, "*/*", null, new DataReader() {
-			public void load(URI id, String media, InputStream content, long len)
-					throws IOException {
+			public void load(URI id, String media, InputStream content, long len) throws IOException {
 				byte[] buf = new byte[1024];
 				assertEquals("read content", new String(buf, 0, content.read(buf)));
 			}
@@ -91,8 +87,7 @@ public class FileDataStoreTest extends TestCase {
 		}
 		String uri = file.toURI().toASCIIString();
 		store.readEntry(uri, uri, "*/*", null, new DataReader() {
-			public void load(URI id, String media, InputStream content, long len)
-					throws IOException {
+			public void load(URI id, String media, InputStream content, long len) throws IOException {
 				assertEquals("text/plain", media);
 			}
 		});
@@ -104,15 +99,13 @@ public class FileDataStoreTest extends TestCase {
 		final File text = File.createTempFile("test", ".txt", new File(dir));
 		final File xml = File.createTempFile("test", ".xml", new File(dir));
 		store.listEachEntry("dir", tmp, "text/plain", new DataInfo() {
-			public void list(URI id, String media, long lastModified)
-					throws IOException {
+			public void list(URI id, String media, long lastModified) throws IOException {
 				assertEquals("text/plain", media);
 				assertEquals(text.getAbsolutePath(), new File(id).getAbsolutePath());
 			}
 		});
 		store.listEachEntry("dir", tmp, "application/xml", new DataInfo() {
-			public void list(URI id, String media, long lastModified)
-					throws IOException {
+			public void list(URI id, String media, long lastModified) throws IOException {
 				assertEquals("application/xml", media);
 				assertEquals(xml.getAbsolutePath(), new File(id).getAbsolutePath());
 			}
@@ -145,10 +138,14 @@ public class FileDataStoreTest extends TestCase {
 		final File json = File.createTempFile("test", ".json", new File(dir));
 		final File zip = File.createTempFile("test", ".zip", new File(dir));
 		assertEquals(4, store.listAcceptableFiles(new File(dir), "*/*").length);
-		assertEquals(Collections.singletonList(text), Arrays.asList(store.listAcceptableFiles(new File(dir), "text/plain")));
-		assertEquals(Collections.singletonList(xml), Arrays.asList(store.listAcceptableFiles(new File(dir), "application/xml")));
-		assertEquals(Collections.singletonList(json), Arrays.asList(store.listAcceptableFiles(new File(dir), "application/json")));
-		assertEquals(Collections.singletonList(zip), Arrays.asList(store.listAcceptableFiles(new File(dir), "application/zip")));
+		assertEquals(Collections.singletonList(text),
+				Arrays.asList(store.listAcceptableFiles(new File(dir), "text/plain")));
+		assertEquals(Collections.singletonList(xml),
+				Arrays.asList(store.listAcceptableFiles(new File(dir), "application/xml")));
+		assertEquals(Collections.singletonList(json),
+				Arrays.asList(store.listAcceptableFiles(new File(dir), "application/json")));
+		assertEquals(Collections.singletonList(zip),
+				Arrays.asList(store.listAcceptableFiles(new File(dir), "application/zip")));
 		zip.delete();
 		json.delete();
 		xml.delete();

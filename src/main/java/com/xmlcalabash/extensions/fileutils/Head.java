@@ -8,7 +8,6 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.net.URI;
 
-import com.xmlcalabash.core.XMLCalabash;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
 
@@ -30,12 +29,6 @@ import com.xmlcalabash.util.TreeWriter;
  * Time: 3:17:23 PM
  * To change this template use File | Settings | File Templates.
  */
-
-@XMLCalabash(
-        name = "pxf:head",
-        type = "{http://exproc.org/proposed/steps/file}head " +
-                "{http://xmlcalabash.com/ns/extensions/fileutils}head")
-
 public class Head extends DefaultStep {
     private static final QName _href = new QName("href");
     private static final QName _count = new QName("count");
@@ -84,44 +77,40 @@ public class Head extends DefaultStep {
                         throws IOException {
                     Reader rdr = new InputStreamReader(content);
                     BufferedReader brdr = new BufferedReader(rdr);
-                    try {
-                        String line = null;
-                        int count = 0;
+                    String line = null;
+                    int count = 0;
 
-                        if (maxCount >= 0) {
+                    if (maxCount >= 0) {
+                        line = brdr.readLine();
+                        while (line != null && count < maxCount) {
+                            tree.addStartElement(c_line);
+                            tree.startContent();
+                            tree.addText(line);
+                            tree.addEndElement();
+                            tree.addText("\n");
+                            count++;
                             line = brdr.readLine();
-                            while (line != null && count < maxCount) {
-                                tree.addStartElement(c_line);
-                                tree.startContent();
-                                tree.addText(line);
-                                tree.addEndElement();
-                                tree.addText("\n");
-                                count++;
-                                line = brdr.readLine();
-                            }
-                        } else {
-                            line = "not null";
-                            while (line != null && count < negMaxCount) {
-                                count++;
-                                line = brdr.readLine();
-                            }
-
-                            line = brdr.readLine();
-                            while (line != null) {
-                                tree.addStartElement(c_line);
-                                tree.startContent();
-                                tree.addText(line);
-                                tree.addEndElement();
-                                tree.addText("\n");
-                                line = brdr.readLine();
-                            }
                         }
-                    } finally {
-                        brdr.close();
-                        // BufferedReader.close() also closes the underlying 
-                        // reader, so this second call is unnecessary.
-                        // rdr.close();
+                    } else {
+                        line = "not null";
+                        while (line != null && count < negMaxCount) {
+                            count++;
+                            line = brdr.readLine();
+                        }
+
+                        line = brdr.readLine();
+                        while (line != null) {
+                            tree.addStartElement(c_line);
+                            tree.startContent();
+                            tree.addText(line);
+                            tree.addEndElement();
+                            tree.addText("\n");
+                            line = brdr.readLine();
+                        }
                     }
+                    
+                    brdr.close();
+                    rdr.close();
                 }
             });
         } catch (FileNotFoundException fnfe) {

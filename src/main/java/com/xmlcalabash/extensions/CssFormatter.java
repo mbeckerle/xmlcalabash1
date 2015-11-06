@@ -2,10 +2,8 @@ package com.xmlcalabash.extensions;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.URI;
 import java.util.Properties;
 
-import com.xmlcalabash.core.XMLCalabash;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmNode;
@@ -22,8 +20,6 @@ import com.xmlcalabash.library.DefaultStep;
 import com.xmlcalabash.model.RuntimeValue;
 import com.xmlcalabash.runtime.XAtomicStep;
 import com.xmlcalabash.util.TreeWriter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Created by IntelliJ IDEA.
@@ -32,14 +28,8 @@ import org.slf4j.LoggerFactory;
  * Time: 6:59:07 PM
  * To change this template use File | Settings | File Templates.
  */
-
-@XMLCalabash(
-        name = "cx:css-formatter",
-        type = "{http://xmlcalabash.com/ns/extensions}css-formatter")
-
 public class CssFormatter extends DefaultStep {
     private static final QName _href = new QName("","href");
-    private static final QName _css = new QName("","css");
     private static final QName _content_type = new QName("","content-type");
     private ReadablePipe source = null;
     private ReadablePipe css = null;
@@ -87,11 +77,13 @@ public class CssFormatter extends DefaultStep {
             provider = (CssProcessor) Class.forName(cssClass).newInstance();
             provider.initialize(runtime,step,options);
         } catch (Exception e) {
-            logger.debug(e.getMessage(), e);
+            if (runtime.getDebug()) {
+                e.printStackTrace();
+            }
             throw new XProcException(step.getNode(), "Failed to instantiate CSS provider");
         }
 
-        while (css != null && css.moreDocuments()) {
+        while (css.moreDocuments()) {
             XdmNode style = css.read();
             provider.addStylesheet(style);
         }
@@ -100,22 +92,15 @@ public class CssFormatter extends DefaultStep {
         if (getOption(_content_type) != null) {
             contentType = getOption(_content_type).getString();
         } else {
-            contentType = "application/pdf";
+            contentType = "application/xml";
         }
-
-        if (getOption(_css) != null) {
-            String s = getOption(_css).getString();
-            for (String css : s.split("\\s+")) {
-                provider.addStylesheet(css);
-            }
-       }
 
         String href = getOption(_href).getString();
         String base = getOption(_href).getBaseURI().toASCIIString();
 
         try {
             DataStore store = runtime.getDataStore();
-            URI id = store.writeEntry(href, base, contentType, new DataWriter() {
+            store.writeEntry(href, base, contentType, new DataWriter() {
                 public void store(OutputStream out) throws IOException {
                     try {
                         provider.format(source.read(),out,contentType);
@@ -124,15 +109,6 @@ public class CssFormatter extends DefaultStep {
                     }
                 }
             });
-
-            TreeWriter tree = new TreeWriter(runtime);
-            tree.startDocument(step.getNode().getBaseURI());
-            tree.addStartElement(XProcConstants.c_result);
-            tree.startContent();
-            tree.addText(id.toASCIIString());
-            tree.addEndElement();
-            tree.endDocument();
-            result.write(tree.getResult());
         } catch (XProcException e) {
             throw e;
         } catch (Exception e) {
@@ -141,5 +117,14 @@ public class CssFormatter extends DefaultStep {
             }
             throw new XProcException(step.getNode(), "Failed to style with CSS document", e);
         }
+
+        TreeWriter tree = new TreeWriter(runtime);
+        tree.startDocument(step.getNode().getBaseURI());
+        tree.addStartElement(XProcConstants.c_result);
+        tree.startContent();
+        tree.addText(href);
+        tree.addEndElement();
+        tree.endDocument();
+        result.write(tree.getResult());
     }
 }

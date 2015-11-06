@@ -15,7 +15,6 @@ import javax.xml.datatype.DatatypeConfigurationException;
 import javax.xml.datatype.DatatypeFactory;
 import javax.xml.datatype.XMLGregorianCalendar;
 
-import com.xmlcalabash.core.XMLCalabash;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmNode;
@@ -37,12 +36,6 @@ import com.xmlcalabash.util.TreeWriter;
  *
  * @author ndw
  */
-
-@XMLCalabash(
-        name = "pxp:unzip",
-        type = "{http://exproc.org/proposed/steps}unzip " +
-                "{http://xmlcalabash.com/ns/extensions}unzip")
-
 public class Unzip extends DefaultStep {
     private static final String ACCEPT_ZIP = "application/zip, */*";
     protected final static QName _href = new QName("", "href");
@@ -118,119 +111,113 @@ public class Unzip extends DefaultStep {
     void unzip(DatatypeFactory dfactory, String systemId, InputStream stream) throws IOException {
         ZipInputStream zipFile = new ZipInputStream(stream);
 
-        try {
-            TreeWriter tree = new TreeWriter(runtime);
+        TreeWriter tree = new TreeWriter(runtime);
 
-            if (name == null) {
-                tree.startDocument(step.getNode().getBaseURI());
-                tree.addStartElement(c_zipfile);
-                tree.addAttribute(_href, systemId);
+        if (name == null) {
+            tree.startDocument(step.getNode().getBaseURI());
+            tree.addStartElement(c_zipfile);
+            tree.addAttribute(_href, systemId);
+            tree.startContent();
+
+            GregorianCalendar cal = new GregorianCalendar();
+
+            ZipEntry entry = zipFile.getNextEntry();
+            while (entry != null) {
+                cal.setTimeInMillis(entry.getTime());
+                XMLGregorianCalendar xmlCal = dfactory.newXMLGregorianCalendar(cal);
+
+                if (entry.isDirectory()) {
+                    tree.addStartElement(c_directory);
+                } else {
+                    tree.addStartElement(c_file);
+
+                    tree.addAttribute(_compressed_size, ""+entry.getCompressedSize());
+                    tree.addAttribute(_size, ""+entry.getSize());
+                }
+
+                if (entry.getComment() != null) {
+                    tree.addAttribute(_comment, entry.getComment());
+                }
+
+                tree.addAttribute(_name, ""+entry.getName());
+                tree.addAttribute(_date, xmlCal.toXMLFormat());
+                tree.startContent();
+                tree.addEndElement();
+                entry = zipFile.getNextEntry();
+            }
+
+            zipFile.close();
+
+            tree.addEndElement();
+            tree.endDocument();
+            result.write(tree.getResult());
+        } else {
+            ZipEntry entry = zipFile.getNextEntry();
+            while (entry != null) {
+                if (name.equals(entry.getName())) {
+                    break;
+                }
+                entry = zipFile.getNextEntry();
+            }
+
+            if (entry == null) {
+                throw new XProcException(step.getNode(), "ZIP file does not contain '" + name + "'");
+            }
+
+            if ("application/xml".equals(contentType) || "text/xml".equals(contentType)
+                    || contentType.endsWith("+xml")) {
+                InputSource isource = new InputSource(zipFile);
+                XdmNode doc = runtime.parse(isource);
+                result.write(doc);
+            } else {
+                boolean storeText = (contentType != null && contentType.startsWith("text/") && charset != null);
+
+                // There's no point giving the file the URI of the pipeline document.
+                // This formulation is parallel to the jar scheme.
+                URI zipURI = URI.create("zip:" + zipFn + "!" + entry.getName());
+
+                tree.startDocument(zipURI);
+                tree.addStartElement(XProcConstants.c_data);
+                tree.addAttribute(_name,name);
+                tree.addAttribute(_content_type, contentType);
+                if (!storeText) {
+                    tree.addAttribute(_encoding, "base64");
+                }
                 tree.startContent();
 
-                GregorianCalendar cal = new GregorianCalendar();
-
-                ZipEntry entry = zipFile.getNextEntry();
-                while (entry != null) {
-                    cal.setTimeInMillis(entry.getTime());
-                    XMLGregorianCalendar xmlCal = dfactory.newXMLGregorianCalendar(cal);
-
-                    if (entry.isDirectory()) {
-                        tree.addStartElement(c_directory);
-                    } else {
-                        tree.addStartElement(c_file);
-
-                        tree.addAttribute(_compressed_size, ""+entry.getCompressedSize());
-                        tree.addAttribute(_size, ""+entry.getSize());
+                if (storeText) {
+                    InputStreamReader reader = new InputStreamReader(zipFile, charset);
+                    int maxlen = 4096;
+                    char[] chars = new char[maxlen];
+                    int read = reader.read(chars, 0, maxlen);
+                    while (read >= 0) {
+                        if (read > 0) {
+                            String s = new String(chars);
+                            tree.addText(s);
+                        }
+                        read = reader.read(chars, 0, maxlen);
                     }
-
-                    if (entry.getComment() != null) {
-                        tree.addAttribute(_comment, entry.getComment());
+                    reader.close();
+                } else {
+                    BufferedInputStream bufstream = new BufferedInputStream(zipFile);
+                    int maxlen = 4096 * 3;
+                    byte[] bytes = new byte[maxlen];
+                    int read = bufstream.read(bytes, 0, maxlen);
+                    while (read >= 0) {
+                        if (read > 0) {
+                            String base64 = Base64.encodeBytes(bytes, 0, read);
+                            tree.addText(base64 + "\n");
+                        }
+                        read = bufstream.read(bytes, 0, maxlen);
                     }
-
-                    tree.addAttribute(_name, ""+entry.getName());
-                    tree.addAttribute(_date, xmlCal.toXMLFormat());
-                    tree.startContent();
-                    tree.addEndElement();
-                    entry = zipFile.getNextEntry();
+                    bufstream.close();
                 }
 
                 tree.addEndElement();
                 tree.endDocument();
                 result.write(tree.getResult());
-            } else {
-                ZipEntry entry = zipFile.getNextEntry();
-                while (entry != null) {
-                    if (name.equals(entry.getName())) {
-                        break;
-                    }
-                    entry = zipFile.getNextEntry();
-                }
-
-                if (entry == null) {
-                    throw new XProcException(step.getNode(), "ZIP file does not contain '" + name + "'");
-                }
-
-                if ("application/xml".equals(contentType) || "text/xml".equals(contentType)
-                        || contentType.endsWith("+xml")) {
-                    InputSource isource = new InputSource(zipFile);
-                    XdmNode doc = runtime.parse(isource);
-                    result.write(doc);
-                } else {
-                    boolean storeText = (contentType != null && contentType.startsWith("text/") && charset != null);
-
-                    // There's no point giving the file the URI of the pipeline document.
-                    // This formulation is parallel to the jar scheme.
-                    URI zipURI = URI.create("zip:" + zipFn + "!" + entry.getName());
-
-                    tree.startDocument(zipURI);
-                    tree.addStartElement(XProcConstants.c_data);
-                    tree.addAttribute(_name,name);
-                    tree.addAttribute(_content_type, contentType);
-                    if (!storeText) {
-                        tree.addAttribute(_encoding, "base64");
-                    }
-                    tree.startContent();
-
-                    if (storeText) {
-                        InputStreamReader reader = new InputStreamReader(zipFile, charset);
-                        try {
-                            int maxlen = 4096;
-                            char[] chars = new char[maxlen];
-                            int read = reader.read(chars, 0, maxlen);
-                            while (read >= 0) {
-                                if (read > 0) {
-                                    String s = new String(chars);
-                                    tree.addText(s);
-                                }
-                                read = reader.read(chars, 0, maxlen);
-                            }
-                        } finally {
-                            reader.close();
-                        }
-                    } else {
-                        BufferedInputStream bufstream = new BufferedInputStream(zipFile);
-                        try {
-                            int maxlen = 4096 * 3;
-                            byte[] bytes = new byte[maxlen];
-                            int read = bufstream.read(bytes, 0, maxlen);
-                            while (read >= 0) {
-                                if (read > 0) {
-                                    String base64 = Base64.encodeBytes(bytes, 0, read);
-                                    tree.addText(base64 + "\n");
-                                }
-                                read = bufstream.read(bytes, 0, maxlen);
-                            }
-                        } finally {
-                            bufstream.close();
-                        }
-                    }
-
-                    tree.addEndElement();
-                    tree.endDocument();
-                    result.write(tree.getResult());
-                }
             }
-        } finally {
+
             zipFile.close();
         }
     }

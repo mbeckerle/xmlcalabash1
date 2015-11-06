@@ -1,6 +1,5 @@
 package com.xmlcalabash.library;
 
-import com.xmlcalabash.core.XMLCalabash;
 import com.xmlcalabash.io.ReadablePipe;
 import com.xmlcalabash.io.WritablePipe;
 import com.xmlcalabash.core.XProcRuntime;
@@ -8,6 +7,8 @@ import com.xmlcalabash.core.XProcRuntime;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmNode;
 import com.xmlcalabash.runtime.XAtomicStep;
+import org.apache.commons.logging.LogFactory;
+import org.apache.commons.logging.Log;
 
 /**
  * Created by IntelliJ IDEA.
@@ -16,11 +17,6 @@ import com.xmlcalabash.runtime.XAtomicStep;
  * Time: 7:44:07 AM
  * To change this template use File | Settings | File Templates.
  */
-
-
-@XMLCalabash(
-        name = "p:identity",
-        type = "{http://www.w3.org/ns/xproc}identity")
 
 public class Identity extends DefaultStep {
     private ReadablePipe source = null;
@@ -51,7 +47,7 @@ public class Identity extends DefaultStep {
 
         while (source.moreDocuments()) {
             XdmNode doc = source.read();
-            logger.trace("Identity step " + step.getName() + " read " + doc.getDocumentURI());
+            finest(null, "Identity step " + step.getName() + " read " + doc.getDocumentURI());
             result.write(doc);
         }
     }

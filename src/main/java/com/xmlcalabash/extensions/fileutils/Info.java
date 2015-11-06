@@ -1,6 +1,5 @@
 package com.xmlcalabash.extensions.fileutils;
 
-import com.xmlcalabash.core.XMLCalabash;
 import com.xmlcalabash.library.DefaultStep;
 import com.xmlcalabash.library.HttpRequest;
 import com.xmlcalabash.io.WritablePipe;
@@ -10,10 +9,9 @@ import com.xmlcalabash.core.XProcConstants;
 import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.runtime.XAtomicStep;
 import com.xmlcalabash.model.RuntimeValue;
-import com.xmlcalabash.util.AxisNodes;
-import com.xmlcalabash.util.MessageFormatter;
 import com.xmlcalabash.util.TreeWriter;
 import com.xmlcalabash.util.S9apiUtils;
+import com.xmlcalabash.util.RelevantNodes;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmNode;
@@ -32,12 +30,6 @@ import java.util.Calendar;
  * Time: 3:17:23 PM
  * To change this template use File | Settings | File Templates.
  */
-
-@XMLCalabash(
-        name = "pxf:info",
-        type = "{http://exproc.org/proposed/steps/file}info " +
-                "{http://xmlcalabash.com/ns/extensions/fileutils}info")
-
 public class Info extends DefaultStep {
     private static final QName _href = new QName("href");
     private static final QName _method = new QName("method");
@@ -91,7 +83,7 @@ public class Info extends DefaultStep {
 
         boolean failOnError = getOption(_fail_on_error, true);
 
-        logger.trace(MessageFormatter.nodeMessage(step.getNode(), "Checking info for " + uri));
+        finest(step.getNode(), "Checking info for " + uri);
 
         TreeWriter tree = new TreeWriter(runtime);
         tree.startDocument(step.getNode().getBaseURI());
@@ -182,7 +174,7 @@ public class Info extends DefaultStep {
             tree.addAttribute(_exists, status >= 400 && status < 500 ? "false" : "true");
             tree.addAttribute(_uri, uri.toASCIIString());
 
-            for (XdmNode node : new AxisNodes(result, Axis.CHILD, AxisNodes.SIGNIFICANT)) {
+            for (XdmNode node : new RelevantNodes(runtime, result, Axis.CHILD)) {
                 if ("Last-Modified".equals(node.getAttributeValue(_name))) {
                     String months[] = {"JAN", "FEB", "MAR", "APR", "MAY", "JUN",
                                        "JUL", "AUG", "SEP", "OCT", "NOV", "DEC" };
@@ -219,7 +211,7 @@ public class Info extends DefaultStep {
 
             tree.startContent();
 
-            for (XdmNode node : new AxisNodes(result, Axis.CHILD, AxisNodes.SIGNIFICANT)) {
+            for (XdmNode node : new RelevantNodes(runtime, result, Axis.CHILD)) {
                 tree.addSubtree(node);
             }
 

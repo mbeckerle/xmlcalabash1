@@ -149,8 +149,6 @@ public class ParseArgs {
                     userArgs.setExtensionValues(true);
                 } else if ("xpointer-on-text".equals(ext)) {
                     userArgs.setAllowXPointerOnText(true);
-                } else if ("allow-text-results".equals(ext)) {
-                    userArgs.setAllowTextResults(true);
                 } else if ("use-xslt-1.0".equals(ext) || "use-xslt-10".equals(ext)) {
                     userArgs.setUseXslt10(true);
                 } else if ("html-serializer".equals(ext)) {
@@ -162,27 +160,6 @@ public class ParseArgs {
                 } else {
                     throw new XProcException("Unexpected extension: " + ext);
                 }
-                continue;
-            }
-
-            if (arg.startsWith("--serialize")) {
-                String ser = parseString(null, "serialize");
-                String port = null;
-                String param = null;
-                String value = null;
-                int pos = ser.indexOf('=');
-                if (pos < 0) {
-                    throw new XProcException("Invalid serialization parameter: " + ser);
-                }
-                param = ser.substring(0,pos);
-                value = ser.substring(pos+1);
-                pos = param.indexOf(':');
-                if (pos >= 0) {
-                    port = param.substring(0, pos);
-                    param = param.substring(pos+1);
-                }
-
-                userArgs.setSerializationParameter(port, param, value);
                 continue;
             }
 

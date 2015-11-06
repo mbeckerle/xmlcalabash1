@@ -13,7 +13,7 @@ import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Stack;
 import java.util.Vector;
-import org.slf4j.Logger;
+import java.util.logging.Logger;
 
 import javax.xml.XMLConstants;
 import javax.xml.transform.sax.SAXSource;
@@ -22,7 +22,10 @@ import com.xmlcalabash.core.XProcConstants;
 import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.extensions.UntilUnchanged;
-import com.xmlcalabash.util.*;
+import com.xmlcalabash.util.RelevantNodes;
+import com.xmlcalabash.util.S9apiUtils;
+import com.xmlcalabash.util.TypeUtils;
+import com.xmlcalabash.util.URIUtils;
 import net.sf.saxon.PreparedStylesheet;
 import net.sf.saxon.functions.FunctionLibrary;
 import net.sf.saxon.query.QueryModule;
@@ -40,7 +43,6 @@ import net.sf.saxon.s9api.XdmNodeKind;
 import net.sf.saxon.s9api.XdmSequenceIterator;
 import net.sf.saxon.s9api.XsltCompiler;
 import net.sf.saxon.s9api.XsltExecutable;
-import org.slf4j.LoggerFactory;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.XMLReader;
@@ -52,6 +54,7 @@ import org.xml.sax.helpers.XMLReaderFactory;
  */
 public class Parser {
     // TODO: Make new QName() values throughout static
+
     private static QName px_name = new QName(XProcConstants.NS_CALABASH_EX,"name");
     private static QName _name = new QName("name");
     private static QName _href = new QName("href");
@@ -68,7 +71,7 @@ public class Parser {
     private Stack<DeclareStep> declStack = null;
     protected HashSet<String> topLevelImports = new HashSet<String> ();
     private boolean loadingStandardLibrary = false;
-    private Logger logger = LoggerFactory.getLogger(Parser.class);
+    private Logger logger = Logger.getLogger(this.getClass().getName());
     private static int importCount = 0;
 
     public Parser(XProcRuntime runtime) {
@@ -76,22 +79,10 @@ public class Parser {
         declStack = new Stack<DeclareStep> ();
     }
 
-    @Deprecated
     public DeclareStep loadPipeline(InputStream inputStream) throws SaxonApiException, IOException {
-        return loadPipeline(inputStream, null);
-    }
-
-    public DeclareStep loadPipeline(InputStream inputStream, String base) throws SaxonApiException, IOException {
-        InputSource is = new InputSource(inputStream);
-        if (base != null) {
-            is.setSystemId(base);
-        }
-        try {
-            XdmNode doc = runtime.parse(is);
-            return loadPipeline(doc);
-        } finally {
-            inputStream.close();
-        }
+        XdmNode doc = runtime.parse(new InputSource(inputStream));
+        inputStream.close();
+        return loadPipeline(doc);
     }
 
     public DeclareStep loadPipeline(String uri) throws SaxonApiException {
@@ -167,24 +158,11 @@ public class Parser {
         return doc;
     }
 
-    @Deprecated
     public PipelineLibrary loadLibrary(InputStream libraryInputStream) throws SaxonApiException, IOException {
-        return loadLibrary(libraryInputStream, null);
-    }
-
-    public PipelineLibrary loadLibrary(InputStream libraryInputStream, String base) throws SaxonApiException, IOException {
-        InputSource is = new InputSource(libraryInputStream);
-        if (base != null) {
-            is.setSystemId(base);
-        }
-
-        try {
-            XdmNode doc = runtime.parse(is);
-            XdmNode root = S9apiUtils.getDocumentElement(doc);
-            return useLibrary(root);
-        } finally {
-            libraryInputStream.close();
-        }
+        XdmNode doc = runtime.parse(new InputSource(libraryInputStream));
+        libraryInputStream.close();
+        XdmNode root = S9apiUtils.getDocumentElement(doc);
+        return useLibrary(root);
     }
 
     public PipelineLibrary loadLibrary(String libraryURI) throws SaxonApiException {
@@ -238,7 +216,7 @@ public class Parser {
             library.setVersion(inheritedVersion(node));
 
             // Read all the steps and make them available
-            for (XdmNode snode : new AxisNodes(runtime, node, Axis.CHILD, AxisNodes.PIPELINE)) {
+            for (XdmNode snode : new RelevantNodes(runtime, node, Axis.CHILD)) {
                 if (snode.getNodeName().equals(XProcConstants.p_import)) {
                     // skip it
                 } else {
@@ -252,7 +230,7 @@ public class Parser {
                 }
             }
 
-            for (XdmNode snode : new AxisNodes(runtime, node, Axis.CHILD, AxisNodes.PIPELINE)) {
+            for (XdmNode snode : new RelevantNodes(runtime, node, Axis.CHILD)) {
                 if (snode.getNodeName().equals(XProcConstants.p_import)) {
                     Step substep = readStep(library, snode);
                     Import importElem = (Import) substep;
@@ -351,7 +329,7 @@ public class Parser {
 
         int pos = 1;
         boolean done = false;
-        for (XdmNode node : new AxisNodes(runtime, step.getNode(), Axis.CHILD, AxisNodes.PIPELINE)) {
+        for (XdmNode node : new RelevantNodes(runtime, step.getNode(), Axis.CHILD)) {
             if (done) {
                 if (node.getNodeKind() == XdmNodeKind.TEXT) {
                     throw XProcException.staticError(37, node, "Unexpected text: " + node.getStringValue());
@@ -644,7 +622,7 @@ public class Parser {
             input.setSelect(select);
         }
 
-        for (XdmNode snode : new AxisNodes(runtime, node, Axis.CHILD, AxisNodes.PIPELINE)) {
+        for (XdmNode snode : new RelevantNodes(runtime, node, Axis.CHILD)) {
             Binding binding = readBinding(parent, snode);
             if (binding != null) {
                 input.addBinding(binding);
@@ -673,7 +651,7 @@ public class Parser {
         output.setSequence(sequence);
         output.setPrimary(primary);
 
-        for (XdmNode snode : new AxisNodes(runtime, node, Axis.CHILD, AxisNodes.PIPELINE)) {
+        for (XdmNode snode : new RelevantNodes(runtime, node, Axis.CHILD)) {
             Binding binding = readBinding(parent, snode);
             if (binding != null) {
                 output.addBinding(binding);
@@ -727,7 +705,10 @@ public class Parser {
         pipe.setStep(step);
         pipe.setPort(port);
 
-        for (XdmNode snode : new AxisNodes(runtime, node, Axis.CHILD, AxisNodes.PIPELINE)) {
+        RelevantNodes rnodes = new RelevantNodes(runtime, node, Axis.CHILD);
+        Iterator<XdmNode> iter = rnodes.iterator();
+        while (iter.hasNext()) {
+            XdmNode snode = iter.next();
             throw new IllegalArgumentException("Unexpected in pipe: " + snode.getNodeName());
         }
 
@@ -744,7 +725,7 @@ public class Parser {
         DocumentBinding doc = new DocumentBinding(runtime, node);
         doc.setHref(href);
 
-        for (XdmNode snode : new AxisNodes(runtime, node, Axis.CHILD, AxisNodes.PIPELINE)) {
+        for (XdmNode snode : new RelevantNodes(runtime, node, Axis.CHILD)) {
             throw new IllegalArgumentException("Unexpected in document: " + snode.getNodeName());
         }
 
@@ -795,7 +776,7 @@ public class Parser {
             doc.setContentType(contentType);
         }
 
-        for (XdmNode snode : new AxisNodes(runtime, node, Axis.CHILD, AxisNodes.PIPELINE)) {
+        for (XdmNode snode : new RelevantNodes(runtime, node, Axis.CHILD)) {
             throw new IllegalArgumentException("Unexpected in document: " + snode.getNodeName());
         }
 
@@ -809,7 +790,7 @@ public class Parser {
 
         EmptyBinding empty = new EmptyBinding(runtime, node);
 
-        for (XdmNode snode : new AxisNodes(runtime, node, Axis.CHILD, AxisNodes.PIPELINE)) {
+        for (XdmNode snode : new RelevantNodes(runtime, node, Axis.CHILD)) {
             throw new IllegalArgumentException("Unexpected in empty: " + snode.getNodeName());
         }
 
@@ -959,7 +940,7 @@ public class Parser {
 
     private void readNamespaceBindings(Step parent, EndPoint endpoint, XdmNode node, String select) {
         boolean hadNamespaceBinding = false;
-        for (XdmNode snode : new AxisNodes(runtime, node, Axis.CHILD, AxisNodes.PIPELINE)) {
+        for (XdmNode snode : new RelevantNodes(runtime, node, Axis.CHILD)) {
             QName nodeName = snode.getNodeName();
 
             if (XProcConstants.p_namespaces.equals(nodeName)) {
@@ -994,7 +975,7 @@ public class Parser {
                 // FIXME: ? HACK!
                 ((ComputableValue) endpoint).addNamespaceBinding(nsbinding);
 
-                for (XdmNode tnode : new AxisNodes(runtime, snode, Axis.CHILD, AxisNodes.PIPELINE)) {
+                for (XdmNode tnode : new RelevantNodes(runtime, snode, Axis.CHILD)) {
                     throw XProcException.staticError(44, snode, "p:namespaces must be empty");
                 }
             } else {
@@ -1073,12 +1054,7 @@ public class Parser {
 
         value = node.getAttributeValue(new QName("method"));
         if (value != null) {
-            QName name = null;
-            if (value.contains(":")) {
-                name = new QName(value, node);
-            } else {
-                name = new QName("", value);
-            }
+            QName name = new QName(value, node);
             if ("".equals(name.getPrefix())) {
                 String method = name.getLocalName();
                 if ("html".equals(method) || "xhtml".equals(method) || "text".equals(method) || "xml".equals(method)) {
@@ -1116,7 +1092,7 @@ public class Parser {
         value = node.getAttributeValue(new QName("version"));
         serial.setVersion(value);
 
-        for (XdmNode snode : new AxisNodes(runtime, node, Axis.CHILD, AxisNodes.PIPELINE)) {
+        for (XdmNode snode : new RelevantNodes(runtime, node, Axis.CHILD)) {
             throw XProcException.staticError(44, node, "p:serialization must be empty.");
         }
 
@@ -1147,7 +1123,7 @@ public class Parser {
 
         checkExtensionAttributes(node, log);
 
-        for (XdmNode snode : new AxisNodes(runtime, node, Axis.CHILD, AxisNodes.PIPELINE)) {
+        for (XdmNode snode : new RelevantNodes(runtime, node, Axis.CHILD)) {
             throw XProcException.staticError(44, node, "p:log must be empty");
         }
 
@@ -1219,7 +1195,7 @@ public class Parser {
         boolean pStep = XProcConstants.NS_XPROC.equals(node.getNodeName().getNamespaceURI());
 
         // Store extension attributes and convert any option shortcut attributes into options
-        for (XdmNode attr : new AxisNodes(node, Axis.ATTRIBUTE)) {
+        for (XdmNode attr : new RelevantNodes(runtime, node, Axis.ATTRIBUTE)) {
             QName aname = attr.getNodeName();
 
             if ((pStep && aname.equals(_use_when))
@@ -1303,7 +1279,7 @@ public class Parser {
         }
 
         // Store extension attributes and convert any option shortcut attributes into options
-        for (XdmNode attr : new AxisNodes(node, Axis.ATTRIBUTE)) {
+        for (XdmNode attr : new RelevantNodes(runtime, node, Axis.ATTRIBUTE)) {
             QName aname = attr.getNodeName();
             if (XMLConstants.NULL_NS_URI.equals(aname.getNamespaceURI())) {
                 if (!"type".equals(aname.getLocalName()) && !"name".equals(aname.getLocalName())
@@ -1484,7 +1460,12 @@ public class Parser {
         String href = node.getAttributeValue(_href);
         URI importURI = node.getBaseURI().resolve(href);
 
-        for (XdmNode child : new AxisNodes(runtime, node, Axis.CHILD, AxisNodes.PIPELINE)) {
+        XdmNode child = null;
+        for (XdmNode cnode : new RelevantNodes(runtime, node, Axis.CHILD)) {
+            child = cnode;
+        }
+
+        if (child != null) {
             throw new UnsupportedOperationException("p:import must be empty.");
         }
 
@@ -1809,7 +1790,7 @@ public class Parser {
 
         Double version = inheritedVersion(node);
 
-        for (XdmNode attr : new AxisNodes(node, Axis.ATTRIBUTE)) {
+        for (XdmNode attr : new RelevantNodes(runtime, node, Axis.ATTRIBUTE)) {
             QName aname = attr.getNodeName();
 
             // The use-when attribute is always ok
@@ -1845,7 +1826,7 @@ public class Parser {
 
     // Can't be used for steps because it doesn't handle option shortcut attributes
     private void checkExtensionAttributes(XdmNode node, SourceArtifact src) {
-        for (XdmNode attr : new AxisNodes(node, Axis.ATTRIBUTE)) {
+        for (XdmNode attr : new RelevantNodes(runtime, node, Axis.ATTRIBUTE)) {
             QName aname = attr.getNodeName();
             if ("".equals(aname.getNamespaceURI())) {
                 // nop
@@ -1912,7 +1893,7 @@ public class Parser {
                 StaticQueryContext sqc = xqcomp.getUnderlyingStaticContext();
                 sqc.compileLibrary(connection.getInputStream(), "utf-8");
                 XQueryExpression xqe = sqc.compileQuery("import module namespace f='" + ns + "'; .");
-                QueryModule qm = xqe.getMainModule();
+                QueryModule qm = xqe.getStaticContext();
                 fl = qm.getGlobalFunctionLibrary();
             }
 

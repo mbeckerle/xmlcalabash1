@@ -4,6 +4,8 @@ import com.xmlcalabash.core.XProcConstants;
 import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.io.ReadableData;
+import com.xmlcalabash.io.ReadableDocument;
+import com.xmlcalabash.io.ReadableInline;
 import com.xmlcalabash.io.ReadablePipe;
 import com.xmlcalabash.model.DeclareStep;
 import com.xmlcalabash.model.RuntimeValue;
@@ -11,16 +13,28 @@ import com.xmlcalabash.runtime.XPipeline;
 import com.xmlcalabash.util.TreeWriter;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.XdmNode;
+import net.sf.saxon.s9api.XdmValue;
+import org.restlet.Request;
+import org.restlet.data.Form;
 import org.restlet.data.MediaType;
 import org.restlet.data.Status;
+import org.restlet.engine.header.Header;
 import org.restlet.representation.EmptyRepresentation;
 import org.restlet.representation.Representation;
 import org.restlet.representation.StringRepresentation;
 import org.restlet.representation.Variant;
+import org.restlet.util.Series;
 import org.xml.sax.InputSource;
+
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.net.URI;
-import java.util.*;
-import java.util.regex.Matcher;
+import java.util.HashMap;
+import java.util.Random;
+import java.util.Vector;
 
 /**
  * Ths file is part of XMLCalabash.
@@ -166,86 +180,41 @@ public class Pipeline extends BaseResource {
         XPipeline xpipeline = pipeconfig.pipeline;
         XProcRuntime runtime = pipeconfig.runtime;
 
+        if (pipeconfig.definput == null) {
+            return badRequest(Status.CLIENT_ERROR_BAD_REQUEST, "No primary input port", variant.getMediaType());
+        }
+
         if (pipeconfig.ran) {
             pipeconfig.reset();
             xpipeline.reset();
         }
 
+        if (pipeconfig.documentCount(pipeconfig.definput) == 0) {
+            xpipeline.clearInputs(pipeconfig.definput);
+        }
+        pipeconfig.writeTo(pipeconfig.definput);
+
         try {
-            if (MediaType.MULTIPART_FORM_DATA.equals(entity.getMediaType(), true)) {
-                processMultipartForm(pipeconfig, entity, variant);
+            XdmNode doc = null;
+
+            if (isXml(entity.getMediaType())) {
+                doc = runtime.parse(new InputSource(entity.getStream()));
             } else {
-                if (pipeconfig.definput == null) {
-                    return badRequest(Status.CLIENT_ERROR_BAD_REQUEST, "No primary input port", variant.getMediaType());
-                }
-                if (pipeconfig.documentCount(pipeconfig.definput) == 0) {
-                    xpipeline.clearInputs(pipeconfig.definput);
-                }
-                pipeconfig.writeTo(pipeconfig.definput);
-
-                XdmNode doc = null;
-
-                if (isXml(entity.getMediaType())) {
-                    doc = runtime.parse(new InputSource(entity.getStream()));
-                    logger.debug("Posting XML document to " + pipeconfig.definput + " for " + id);
-                } else {
-                    ReadablePipe pipe = null;
-                    pipe = new ReadableData(runtime, XProcConstants.c_data, entity.getStream(), entity.getMediaType().toString());
-                    doc = pipe.read();
-                    logger.debug("Posting non-XML document to " + pipeconfig.definput + " for " + id);
-                }
-
-                xpipeline.writeTo(pipeconfig.definput, doc);
-
-                HashMap<String, String> nsBindings = bindingsFromForm(getQuery());
-                HashMap<String, String> options = convertFormStrings(getQuery());
-
-                DeclareStep pipeline = xpipeline.getDeclareStep();
-                for (String fieldName : options.keySet()) {
-                    RuntimeValue value = new RuntimeValue(options.get(fieldName));
-
-                    if (fieldName.startsWith("-p")) {
-                        fieldName = fieldName.substring(2);
-
-                        String port= null;
-                        Matcher matcher = portRE.matcher(fieldName);
-                        if (matcher.matches()) {
-                            port = matcher.group(1);
-                            fieldName = matcher.group(2);
-                        }
-
-                        if (port == null) {
-                            // Figure out the default parameter port
-                            for (String iport : xpipeline.getInputs()) {
-                                com.xmlcalabash.model.Input input = pipeline.getInput(iport);
-                                if (input.getParameterInput() && input.getPrimary()) {
-                                    port = iport;
-                                }
-                            }
-                        }
-
-                        if (port == null) {
-                            throw new XProcException("No primary parameter input port.");
-                        }
-
-                        logger.debug("Parameter " + fieldName + "=" + value.getString() + " for " + id);
-
-                        QName qname = qnameFromForm(fieldName, nsBindings);
-                        xpipeline.setParameter(port, qname, value);
-                        pipeconfig.setParameter(qname, value.getString());
-                    } else {
-                        logger.debug("Option " + fieldName + "=" + value.getString() + " for " + id);
-
-                        QName qname = qnameFromForm(fieldName, nsBindings);
-                        xpipeline.passOption(qname, value);
-                        pipeconfig.setGVOption(qname);
-                    }
-                }
+                ReadablePipe pipe = null;
+                pipe = new ReadableData(runtime, XProcConstants.c_data, entity.getStream(), entity.getMediaType().toString()); 
+                doc = pipe.read();
             }
+
+            xpipeline.writeTo(pipeconfig.definput, doc);
         } catch (Exception e) {
-            pipeconfig.reset();
-            xpipeline.reset();
-            return badRequest(Status.CLIENT_ERROR_BAD_REQUEST, e.getMessage(), variant.getMediaType());
+            throw new XProcException(e);
+        }
+
+        HashMap<QName,String> options = convertForm(getQuery());
+
+        for (QName name : options.keySet()) {
+            RuntimeValue value = new RuntimeValue(options.get(name), null, null);
+            xpipeline.passOption(name, value);
         }
 
         return runPipeline(id);

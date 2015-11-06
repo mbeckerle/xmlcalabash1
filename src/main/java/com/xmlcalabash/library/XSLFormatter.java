@@ -7,7 +7,6 @@ import java.net.URI;
 import java.util.Properties;
 import java.util.Vector;
 
-import com.xmlcalabash.core.XMLCalabash;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
 
@@ -30,11 +29,6 @@ import com.xmlcalabash.util.TreeWriter;
  * Time: 6:59:07 PM
  * To change this template use File | Settings | File Templates.
  */
-
-@XMLCalabash(
-        name = "p:xsl-formatter",
-        type = "{http://www.w3.org/ns/xproc}xsl-formatter")
-
 public class XSLFormatter extends DefaultStep {
     private static final QName _href = new QName("","href");
     private static final QName _content_type = new QName("","content-type");
@@ -84,14 +78,9 @@ public class XSLFormatter extends DefaultStep {
                     provider.initialize(runtime,step,options);
                     break;
                 } catch (NoClassDefFoundError ncdfe) {
-                    logger.debug("No FO processor class available: " + className);
-                    if (runtime.getDebug()) {
-                        ncdfe.printStackTrace();
-                    }
                     pexcept = ncdfe;
                     provider = null;
                 } catch (Exception e) {
-                    logger.debug("Failed to instantiate FO processor class: " + className);
                     pexcept = e;
                     provider = null;
                 }
@@ -122,8 +111,6 @@ public class XSLFormatter extends DefaultStep {
                         processor.format(source.read(),out,contentType);
                     } catch (SaxonApiException e) {
                         throw new XProcException(step.getNode(), "Failed to process FO document", e);
-                    } finally {
-                        out.close();
                     }
                 }
             });

@@ -21,7 +21,6 @@ package com.xmlcalabash.library;
 
 import java.net.URI;
 
-import com.xmlcalabash.core.XMLCalabash;
 import com.xmlcalabash.io.WritablePipe;
 import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.core.XProcException;
@@ -32,19 +31,13 @@ import net.sf.saxon.s9api.QName;
 
 import com.xmlcalabash.runtime.XAtomicStep;
 import com.xmlcalabash.model.RuntimeValue;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  *
  * @author ndw
  */
-
-@XMLCalabash(
-        name = "p:load",
-        type = "{http://www.w3.org/ns/xproc}load")
-
 public class Load extends DefaultStep {
+    protected static final String logger = "org.xproc.library.load";
     private static final QName _href = new QName("href");
     private static final QName _dtd_validate = new QName("dtd-validate");
     private static final QName err_XD0011 = new QName("err", XProcConstants.NS_XPROC_ERROR, "XD0011");
@@ -74,7 +67,9 @@ public class Load extends DefaultStep {
             XdmNode doc = runtime.getConfigurer().getXMLCalabashConfigurer().loadDocument(this);
             result.write(doc);
         } catch (XProcException e) {
-            logger.debug(e.getMessage(), e);
+            if (runtime.getDebug()) {
+                e.printStackTrace();
+            }
             if (err_XD0011.equals(e.getErrorCode())) {
                 RuntimeValue href = getOption(_href);
                 String baseURI = href.getBaseURI().toASCIIString();

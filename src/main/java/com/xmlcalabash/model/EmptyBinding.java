@@ -21,14 +21,13 @@ package com.xmlcalabash.model;
 
 import net.sf.saxon.s9api.XdmNode;
 import com.xmlcalabash.core.XProcRuntime;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  *
  * @author ndw
  */
 public class EmptyBinding extends Binding {
+    
     /** Creates a new instance of EmptyBinding */
     public EmptyBinding() {
         super(null,null);
@@ -46,6 +45,6 @@ public class EmptyBinding extends Binding {
             indent += " ";
         }
 
-        logger.trace(indent + "Empty binding");
+        System.err.println(indent + "Empty binding");
     }
 }

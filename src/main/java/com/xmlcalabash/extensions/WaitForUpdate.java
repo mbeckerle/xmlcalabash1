@@ -1,13 +1,11 @@
 package com.xmlcalabash.extensions;
 
-import com.xmlcalabash.core.XMLCalabash;
 import com.xmlcalabash.core.XProcConstants;
 import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.io.WritablePipe;
 import com.xmlcalabash.library.DefaultStep;
 import com.xmlcalabash.runtime.XAtomicStep;
-import com.xmlcalabash.util.MessageFormatter;
 import com.xmlcalabash.util.TreeWriter;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
@@ -39,11 +37,6 @@ import java.util.TimeZone;
  * Time: 7:44:07 AM
  * To change this template use File | Settings | File Templates.
  */
-
-
-@XMLCalabash(
-        name = "cx:wait-for-update",
-        type = "{http://xmlcalabash.com/ns/extensions}wait-for-update")
 
 public class WaitForUpdate extends DefaultStep {
     private static final QName _href = new QName("","href");
@@ -122,7 +115,10 @@ public class WaitForUpdate extends DefaultStep {
 
         if (!f.exists()) {
             newFile = true;
-            logger.debug(MessageFormatter.nodeMessage(step.getNode(), "Exist wait: " + f.getAbsolutePath()));
+            runtime.fine(this, step.getNode(), "Exist wait: " + f.getAbsolutePath());
+            if (runtime.getDebug()) {
+                System.err.println("Exist wait: " + f.getAbsolutePath());
+            }
             while (!f.exists()) {
                 try {
                     Thread.sleep(FILESYSTEM_WAIT);
@@ -136,7 +132,10 @@ public class WaitForUpdate extends DefaultStep {
         long cdt = dt;
 
         if (!newFile) {
-            logger.debug(MessageFormatter.nodeMessage(step.getNode(), "Update wait: " + f.getAbsolutePath()));
+            runtime.fine(this, step.getNode(), "Update wait: " + f.getAbsolutePath());
+            if (runtime.getDebug()) {
+                System.err.println("Update wait: " + f.getAbsolutePath());
+            }
             while (cdt == dt) {
                 try {
                     Thread.sleep(FILESYSTEM_WAIT);
@@ -174,7 +173,10 @@ public class WaitForUpdate extends DefaultStep {
 
         if (statusCode == 404) {
             newUri = true;
-            logger.debug(MessageFormatter.nodeMessage(step.getNode(), "Exist wait: " + uri.toASCIIString()));
+            runtime.fine(this, step.getNode(), "Exist wait: " + uri.toASCIIString());
+            if (runtime.getDebug()) {
+                System.err.println("Exist wait: " + uri.toASCIIString());
+            }
             while (statusCode == 404) {
                 try {
                     Thread.sleep(HTTP_WAIT); // one second
@@ -191,7 +193,10 @@ public class WaitForUpdate extends DefaultStep {
         long cdt = dt;
 
         if (statusCode == 200 && !newUri) {
-            logger.debug(MessageFormatter.nodeMessage(step.getNode(), "Update wait: " + uri.toASCIIString()));
+            runtime.fine(this, step.getNode(), "Update wait: " + uri.toASCIIString());
+            if (runtime.getDebug()) {
+                System.err.println("Update wait: " + uri.toASCIIString());
+            }
             while (statusCode == 200 && cdt == dt) {
                 try {
                     Thread.sleep(HTTP_WAIT);

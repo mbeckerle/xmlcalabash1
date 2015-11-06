@@ -34,8 +34,6 @@ import org.iso_relax.verifier.VerifierFactory;
 import org.iso_relax.verifier.Verifier;
 import org.iso_relax.verifier.Schema;
 import org.iso_relax.verifier.VerifierConfigurationException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.xml.sax.ErrorHandler;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
@@ -108,7 +106,9 @@ public class ValidateWithRNG extends DefaultStep {
 
             result.write(doc);
         } catch (VerifierConfigurationException ex) {
-            logger.debug(ex.getMessage(), ex);
+            if (runtime.getDebug()) {
+                ex.printStackTrace();
+            }
             throw new XProcException(ex);
         } catch (SAXException sx) {
             // Assume the only error is validity failed?
@@ -117,7 +117,9 @@ public class ValidateWithRNG extends DefaultStep {
             }
             result.write(doc);
         } catch (IOException ioe) {
-            logger.debug(ioe.getMessage(), ioe);
+            if (runtime.getDebug()) {
+                ioe.printStackTrace();
+            }
             throw new XProcException(ioe);
         }
     }

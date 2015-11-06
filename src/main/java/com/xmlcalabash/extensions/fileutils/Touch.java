@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URI;
 
-import com.xmlcalabash.core.XMLCalabash;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
 
@@ -28,12 +27,6 @@ import com.xmlcalabash.util.TreeWriter;
  * Time: 3:17:23 PM
  * To change this template use File | Settings | File Templates.
  */
-
-@XMLCalabash(
-        name = "pxf:touch",
-        type = "{http://exproc.org/proposed/steps/file}touch " +
-                "{http://xmlcalabash.com/ns/extensions/fileutils}touch")
-
 public class Touch extends DefaultStep {
     private static final QName _href = new QName("href");
 

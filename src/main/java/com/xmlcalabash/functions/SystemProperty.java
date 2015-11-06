@@ -86,6 +86,7 @@ public class SystemProperty extends XProcExtensionFunctionDefinition {
                       lexicalQName,
                       false,
                       false,
+                      xPathContext.getConfiguration().getNameChecker(),
                       staticContext.getNamespaceResolver());
              } catch (XPathException e) {
                  if (e.getErrorCodeLocalPart()==null || e.getErrorCodeLocalPart().equals("FOCA0002")
@@ -126,8 +127,6 @@ public class SystemProperty extends XProcExtensionFunctionDefinition {
                      value = runtime.jsonFlavor();
                  } else if ("general-values".equals(local)) {
                      value = runtime.getAllowGeneralExpressions() ? "true" : "false";
-                 } else if ("allow-text-results".equals(local)) {
-                     value = runtime.getAllowTextResults() ? "true" : "false";
                  } else if ("xpointer-on-text".equals(local)) {
                      value = runtime.getAllowXPointerOnText() ? "true" : "false";
                  } else if ("use-xslt-1.0".equals(local) || "use-xslt-10".equals(local)) {

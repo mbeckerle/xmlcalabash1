@@ -19,7 +19,6 @@
 
 package com.xmlcalabash.library;
 
-import com.xmlcalabash.core.XMLCalabash;
 import com.xmlcalabash.io.ReadablePipe;
 import com.xmlcalabash.core.XProcRuntime;
 import net.sf.saxon.s9api.SaxonApiException;
@@ -30,11 +29,6 @@ import com.xmlcalabash.runtime.XAtomicStep;
  *
  * @author ndw
  */
-
-@XMLCalabash(
-        name = "p:sink",
-        type = "{http://www.w3.org/ns/xproc}sink")
-
 public class Sink extends DefaultStep {
     protected static final String logger = "org.xproc.library.sink";
     private ReadablePipe source = null;

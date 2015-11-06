@@ -22,14 +22,13 @@ package com.xmlcalabash.model;
 
 import net.sf.saxon.s9api.XdmNode;
 import com.xmlcalabash.core.XProcRuntime;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  *
  * @author ndw
  */
 public class ErrorBinding extends Binding {
+
     /** Creates a new instance of EmptyBinding */
     public ErrorBinding() {
         super(null,null);
@@ -47,7 +46,7 @@ public class ErrorBinding extends Binding {
             indent += " ";
         }
 
-        logger.trace(indent + "Error binding");
+        System.err.println(indent + "Error binding");
     }
 }
 

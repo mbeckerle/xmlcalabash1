@@ -1,8 +1,9 @@
 package com.xmlcalabash.core;
 
-import com.nwalsh.annotations.SaxonExtensionFunction;
 import com.xmlcalabash.piperack.PipelineSource;
-import com.xmlcalabash.util.*;
+import com.xmlcalabash.util.Input;
+import com.xmlcalabash.util.JSONtoXML;
+import com.xmlcalabash.util.Output;
 import net.sf.saxon.Configuration;
 import net.sf.saxon.s9api.Axis;
 import net.sf.saxon.s9api.DocumentBuilder;
@@ -17,10 +18,7 @@ import net.sf.saxon.value.Whitespace;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.lang.reflect.Method;
-import java.net.URL;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Vector;
@@ -31,21 +29,19 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.io.InputStream;
 import java.io.File;
-import java.util.jar.JarFile;
-import java.util.zip.ZipEntry;
 
 import com.xmlcalabash.io.ReadablePipe;
 import com.xmlcalabash.io.DocumentSequence;
 import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.URIUtils;
+import com.xmlcalabash.util.S9apiUtils;
+import com.xmlcalabash.util.RelevantNodes;
+import com.xmlcalabash.util.LogOptions;
 import com.xmlcalabash.model.Step;
 
 import javax.xml.transform.sax.SAXSource;
 import javax.xml.transform.Source;
 
-import org.atteo.classindex.ClassFilter;
-import org.atteo.classindex.ClassIndex;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.xml.sax.InputSource;
 
 import static com.xmlcalabash.util.URIUtils.encode;
@@ -74,8 +70,6 @@ public class XProcConfiguration {
     public static final QName _loader = new QName("", "loader");
     public static final QName _exclude_inline_prefixes = new QName("", "exclude-inline-prefixes");
 
-    protected Logger logger = null;
-
     public String saxonProcessor = "he";
     public boolean schemaAware = false;
     public Input saxonConfig = null;
@@ -89,13 +83,13 @@ public class XProcConfiguration {
     public Hashtable<QName,String> options = new Hashtable<QName,String> ();
     public boolean safeMode = false;
     public String stepName = null;
-    public String entityResolver = "org.xmlresolver.Resolver";
-    public String uriResolver = "org.xmlresolver.Resolver";
+    public String entityResolver = null;
+    public String uriResolver = null;
     public String errorListener = null;
     public Hashtable<QName,Class> implementations = new Hashtable<QName,Class> ();
     public Hashtable<String,String> serializationOptions = new Hashtable<String,String>();
     public LogOptions logOpt = LogOptions.WRAPPED;
-    public HashMap<String,SaxonExtensionFunction> extensionFunctions = new HashMap<String,SaxonExtensionFunction>();
+    public Vector<String> extensionFunctions = new Vector<String>();
     public String foProcessor = null;
     public String cssProcessor = null;
     public String xprocConfigurer = null;
@@ -112,8 +106,6 @@ public class XProcConfiguration {
     public String jsonFlavor = JSONtoXML.MARKLOGIC;
     public boolean useXslt10 = false;
     public boolean htmlSerializer = false;
-    public boolean allowTextResults = false;
-    public Vector<String> catalogs = new Vector<String> ();
 
     public int piperackPort = 8088;
     public int piperackDefaultExpires = 300;
@@ -124,45 +116,35 @@ public class XProcConfiguration {
     private boolean firstOutput = false;
 
     public XProcConfiguration() {
-        logger = LoggerFactory.getLogger(this.getClass());
-        initSaxonProcessor("he", false, null);
-        init();
+        init("he", false, null);
     }
 
     // This constructor is historical, the (String, boolean) constructor is preferred
     public XProcConfiguration(boolean schemaAware) {
-        logger = LoggerFactory.getLogger(this.getClass());
-        initSaxonProcessor("he", schemaAware, null);
-        init();
+        init("he", schemaAware, null);
     }
 
     public XProcConfiguration(Input saxoncfg) {
-        logger = LoggerFactory.getLogger(this.getClass());
-        initSaxonProcessor(null, false, saxoncfg);
-        init();
+        init(null, false, saxoncfg);
     }
 
     public XProcConfiguration(String proctype, boolean schemaAware) {
-        logger = LoggerFactory.getLogger(this.getClass());
-        initSaxonProcessor(proctype, schemaAware, null);
-        init();
+        init(proctype, schemaAware, null);
     }
 
     public XProcConfiguration(Processor processor) {
-        logger = LoggerFactory.getLogger(this.getClass());
         cfgProcessor = processor;
         loadConfiguration();
         if (schemaAware != processor.isSchemaAware()) {
             throw new XProcException("Schema awareness in configuration conflicts with specified processor.");
         }
-        init();
     }
 
     public Processor getProcessor() {
         return cfgProcessor;
     }
 
-    private void initSaxonProcessor(String proctype, boolean schemaAware, Input saxoncfg) {
+    private void init(String proctype, boolean schemaAware, Input saxoncfg) {
         if (schemaAware) {
             proctype = "ee";
         }
@@ -203,33 +185,6 @@ public class XProcConfiguration {
         }
     }
 
-    private void init() {
-        // If we got a schema aware processor, make sure it's reflected in our config
-        // FIXME: are there other things that should be reflected this way?
-        this.schemaAware = cfgProcessor.isSchemaAware();
-        saxonProcessor = Configuration.softwareEdition.toLowerCase();
-        findStepClasses();
-        findExtensionFunctions();
-
-        String classPath = System.getProperty("java.class.path");
-        String[] pathElements = classPath.split(System.getProperty("path.separator"));
-        for (String s : pathElements) {
-            try {
-                JarFile jar = new JarFile(s);
-                ZipEntry catalog = jar.getEntry("catalog.xml");
-                if (catalog != null) {
-                    catalogs.add("jar:file://" + s + "!/catalog.xml");
-                }
-                catalog = jar.getEntry("META-INF/catalog.xml");
-                if (catalog != null) {
-                    catalogs.add("jar:file://" + s + "!/META-INF/catalog.xml");
-                }
-            } catch (IOException e) {
-                // nevermind
-            }
-        }
-    }
-
     private void createSaxonProcessor(String proctype, boolean schemaAware, Input saxoncfg) {
         boolean licensed = schemaAware || !"he".equals(proctype);
 
@@ -261,44 +216,9 @@ public class XProcConfiguration {
             cfgProcessor = new Processor(licensed);
         }
 
-        cfgProcessor.getUnderlyingConfiguration().setStripsAllWhiteSpace(false);
-        cfgProcessor.getUnderlyingConfiguration().setStripsWhiteSpace(Whitespace.NONE);
-
         String actualtype = Configuration.softwareEdition;
         if ((proctype != null) && !"he".equals(proctype) && (!actualtype.toLowerCase().equals(proctype))) {
             System.err.println("Failed to obtain " + proctype.toUpperCase() + " processor; using " + actualtype + " instead.");
-        }
-    }
-
-    private void findStepClasses() {
-        Iterable<Class<?>> classes = ClassFilter.only().from(ClassIndex.getAnnotated(XMLCalabash.class));
-        for (Class<?> klass : classes) {
-            XMLCalabash annotation = klass.getAnnotation(XMLCalabash.class);
-            for (String clarkName: annotation.type().split("\\s+")) {
-                try {
-                    QName name = QName.fromClarkName(clarkName);
-                    logger.trace("Found step type annotation: " + clarkName);
-                    if (implementations.containsKey(name)) {
-                        logger.debug("Ignoring step type annotation for configured step: " + clarkName);
-                    }
-                    implementations.put(name, klass);
-                } catch (IllegalArgumentException iae) {
-                    logger.debug("Failed to parse step annotation type: " + clarkName);
-                }
-            }
-        }
-    }
-
-    private void findExtensionFunctions() {
-        Iterable<Class<?>> classes = ClassIndex.getAnnotated(SaxonExtensionFunction.class);
-        for (Class<?> klass : classes) {
-            String name = klass.getCanonicalName();
-            SaxonExtensionFunction annotation = klass.getAnnotation(SaxonExtensionFunction.class);
-            logger.trace("Found Saxon extension function: " + klass.getCanonicalName());
-            if (extensionFunctions.containsKey(name)) {
-                logger.debug("Duplicate saxon extension function class: " + name);
-            }
-            extensionFunctions.put(name, annotation);
         }
     }
 
@@ -316,6 +236,9 @@ public class XProcConfiguration {
         URI home = URIUtils.homeAsURI();
         URI cwd = URIUtils.cwdAsURI();
         URI puri = home;
+
+        cfgProcessor.getUnderlyingConfiguration().setStripsAllWhiteSpace(false);
+        cfgProcessor.getUnderlyingConfiguration().setStripsWhiteSpace(Whitespace.NONE);
 
         String cfg = System.getProperty("com.xmlcalabash.config.global");
         try {
@@ -392,7 +315,6 @@ public class XProcConfiguration {
         extensionValues = "true".equals(System.getProperty("com.xmlcalabash.general-values", ""+extensionValues));
         xpointerOnText = "true".equals(System.getProperty("com.xmlcalabash.xpointer-on-text", ""+xpointerOnText));
         transparentJSON = "true".equals(System.getProperty("com.xmlcalabash.transparent-json", ""+transparentJSON));
-        allowTextResults = "true".equals(System.getProperty("com.xmlcalabash.allow-text-results", ""+allowTextResults));
         safeMode = "true".equals(System.getProperty("com.xmlcalabash.safe-mode", ""+safeMode));
         jsonFlavor = System.getProperty("com.xmlcalabash.json-flavor", jsonFlavor);
         useXslt10 = "true".equals(System.getProperty("com.xmlcalabash.use-xslt-10", ""+useXslt10));
@@ -487,7 +409,7 @@ public class XProcConfiguration {
             doc = S9apiUtils.getDocumentElement(doc);
         }
 
-        for (XdmNode node : new AxisNodes(null, doc, Axis.CHILD, AxisNodes.PIPELINE)) {
+        for (XdmNode node : new RelevantNodes(null, doc, Axis.CHILD)) {
             String uri = node.getNodeName().getNamespaceURI();
             String localName = node.getNodeName().getLocalName();
 
@@ -658,7 +580,7 @@ public class XProcConfiguration {
     private void parseNamespaceBinding(XdmNode node) {
         String aname = node.getAttributeValue(_prefix);
         String avalue = node.getAttributeValue(_uri);
-        nsBindings.put(aname, avalue);
+        nsBindings.put(aname,avalue);
     }
 
     private void parseDebug(XdmNode node) {
@@ -680,7 +602,7 @@ public class XProcConfiguration {
 
     private void parseExtensionFunction(XdmNode node) {
         String value = node.getAttributeValue(_class_name);
-        extensionFunctions.put(value, null);
+        extensionFunctions.add(value);
     }
 
     private void parseFoProcessor(XdmNode node) {
@@ -727,8 +649,6 @@ public class XProcConfiguration {
             if (! JSONtoXML.knownFlavor(jsonFlavor)) {
                 throw new XProcException("Unrecognized JSON flavor: " + jsonFlavor);
             }
-        } else if ("allow-text-results".equals(name)) {
-            allowTextResults = "true".equals(value);
         } else if ("use-xslt-1.0".equals(name) || "use-xslt-10".equals(name)) {
             useXslt10 = "true".equals(value);
         } else if ("html-serializer".equals(name)) {
@@ -859,8 +779,7 @@ public class XProcConfiguration {
         Vector<XdmValue> docnodes = new Vector<XdmValue> ();
         boolean sawElement = false;
 
-        // FIXME: shouldn't this test for a "document" that doesn't have any document element?
-        for (XdmNode child : new AxisNodes(null, node, Axis.CHILD, AxisNodes.ALL)) {
+        for (XdmNode child : new RelevantNodes(null, node, Axis.CHILD)) {
             if (child.getNodeKind() == XdmNodeKind.ELEMENT) {
                 if (sawElement) {
                     throw new XProcException(node, "Invalid configuration value for input '" + port + "': content is not a valid XML document.");
@@ -898,7 +817,7 @@ public class XProcConfiguration {
         Vector<XdmValue> docnodes = new Vector<XdmValue> ();
         boolean sawElement = false;
 
-        for (XdmNode child : new AxisNodes(null, node, Axis.CHILD, AxisNodes.PIPELINE)) {
+        for (XdmNode child : new RelevantNodes(null, node, Axis.CHILD)) {
             if (child.getNodeKind() == XdmNodeKind.ELEMENT) {
                 if (sawElement) {
                     throw new XProcException(node, "Content of pipeline is not a valid XML document.");
@@ -923,7 +842,7 @@ public class XProcConfiguration {
         String port = node.getAttributeValue(_port);
         String href = node.getAttributeValue(_href);
 
-        for (XdmNode child : new AxisNodes(null, node, Axis.CHILD, AxisNodes.PIPELINE)) {
+        for (XdmNode child : new RelevantNodes(null, node, Axis.CHILD)) {
             if (child.getNodeKind() == XdmNodeKind.ELEMENT) {
                 throw new XProcException(node, "Output must be empty.");
             }
@@ -1020,10 +939,9 @@ public class XProcConfiguration {
                 Class<?> klass = Class.forName(value);
                 implementations.put(name, klass);
             } catch (ClassNotFoundException e) {
-                logger.debug("Class not found: " + value);
+                // nop
             } catch (NoClassDefFoundError e) {
-                String msg = e.getMessage();
-                logger.debug("Cannot instantiate " + value + ", missing class: " + msg);
+                // nop
             }
         }
     }
@@ -1063,7 +981,7 @@ public class XProcConfiguration {
                 serializationOptions.put(name, value);
             }
 
-            for (XdmNode snode : new AxisNodes(null, node, Axis.CHILD, AxisNodes.PIPELINE)) {
+            for (XdmNode snode : new RelevantNodes(null, node, Axis.CHILD)) {
                 throw new XProcException(node, "Configuration error: serialization must be empty");
             }
         }
@@ -1079,7 +997,7 @@ public class XProcConfiguration {
         }
         HashSet<String> options = null;
 
-        for (XdmNode attr : new AxisNodes(node, Axis.ATTRIBUTE)) {
+        for (XdmNode attr : new RelevantNodes(null, node, Axis.ATTRIBUTE)) {
             QName aname = attr.getNodeName();
             if ("".equals(aname.getNamespaceURI())) {
                 if (hash.contains(aname.getLocalName())) {
@@ -1168,10 +1086,6 @@ public class XProcConfiguration {
 
         public void setReader(Step step) {
             // I don't care
-        }
-
-        public void setNames(String stepName, String portName) {
-            // nop;
         }
 
         public void resetReader() {

@@ -13,7 +13,6 @@ import com.xmlcalabash.model.RuntimeValue;
 import com.xmlcalabash.model.Serialization;
 import com.xmlcalabash.model.Step;
 import com.xmlcalabash.model.Variable;
-import com.xmlcalabash.util.MessageFormatter;
 import com.xmlcalabash.util.TreeWriter;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
@@ -88,7 +87,7 @@ public class XPipeline extends XCompoundStep {
 
     public void writeTo(String port, XdmNode node) {
         WritablePipe pipe = outputs.get(port+"|");
-        logger.trace(MessageFormatter.nodeMessage(step.getNode(), "writesTo " + pipe + " for " + port));
+        finest(step.getNode(), "writesTo " + pipe + " for " + port);
         pipe.write(node);
     }
 
@@ -123,9 +122,9 @@ public class XPipeline extends XCompoundStep {
         }
         */
 
-        logger.trace("Running " + infoName + " " + step.getName());
+        fine(null, "Running " + infoName + " " + step.getName());
         if (runtime.getAllowGeneralExpressions()) {
-            logger.trace(MessageFormatter.nodeMessage(step.getNode(), "Running with the 'general-values' extension enabled."));
+            fine(step.getNode(), "Running with the 'general-values' extension enabled.");
         }
 
         XProcData data = runtime.getXProcData();
@@ -192,7 +191,7 @@ public class XPipeline extends XCompoundStep {
                     while (reader.moreDocuments()) {
                         XdmNode doc = reader.read();
                         pipe.write(doc);
-                        logger.trace(MessageFormatter.nodeMessage(step.getNode(), "Pipeline input copy from " + reader + " to " + pipe));
+                        finest(step.getNode(), "Pipeline input copy from " + reader + " to " + pipe);
                     }
                 }
             }
@@ -240,23 +239,20 @@ public class XPipeline extends XCompoundStep {
             if (port.startsWith("|")) {
                 String wport = port.substring(1);
                 WritablePipe pipe = outputs.get(wport);
-                try {
-                    for (ReadablePipe reader : inputs.get(port)) {
-                        // Check for the case where there are no documents, but a sequence is not allowed
-                        if (!reader.moreDocuments() && !pipe.writeSequence()) {
-                            throw XProcException.dynamicError(7, "Reading " + wport + " on " + name);
-                        }
-
-
-                        while (reader.moreDocuments()) {
-                            XdmNode doc = reader.read();
-                            pipe.write(doc);
-                            logger.trace(MessageFormatter.nodeMessage(step.getNode(), "Pipeline output copy from " + reader + " to " + pipe));
-                        }
+                for (ReadablePipe reader : inputs.get(port)) {
+                    // Check for the case where there are no documents, but a sequence is not allowed
+                    if (!reader.moreDocuments() && !pipe.writeSequence()) {
+                        throw XProcException.dynamicError(7);
                     }
-                } finally {
-                    pipe.close(); // Indicate that we're done writing to it
+
+
+                    while (reader.moreDocuments()) {
+                        XdmNode doc = reader.read();
+                        pipe.write(doc);
+                        finest(step.getNode(), "Pipeline output copy from " + reader + " to " + pipe);
+                    }
                 }
+                pipe.close(); // Indicate that we're done writing to it
             }
         }
     }

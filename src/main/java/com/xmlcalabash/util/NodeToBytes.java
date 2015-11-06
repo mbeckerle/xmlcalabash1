@@ -86,34 +86,28 @@ public class NodeToBytes {
     }
 
     private static void storeXML(XProcRuntime runtime, XdmNode doc, OutputStream stream) {
-        try {
-            try {
-                Serializer serializer = runtime.getProcessor().newSerializer();
-                serializer.setOutputProperty(Serializer.Property.ENCODING, "utf-8");
-                serializer.setOutputProperty(Serializer.Property.INDENT, "no");
-                serializer.setOutputProperty(Serializer.Property.OMIT_XML_DECLARATION, "yes");
-                serializer.setOutputProperty(Serializer.Property.METHOD, "xml");
+        Serializer serializer = new Serializer();
+        serializer.setOutputProperty(Serializer.Property.ENCODING, "utf-8");
+        serializer.setOutputProperty(Serializer.Property.INDENT, "no");
+        serializer.setOutputProperty(Serializer.Property.OMIT_XML_DECLARATION, "yes");
+        serializer.setOutputProperty(Serializer.Property.METHOD, "xml");
 
-                serializer.setOutputStream(stream);
-                S9apiUtils.serialize(runtime, doc, serializer);
-            } finally {
-                stream.close();
-            }
+        try {
+            serializer.setOutputStream(stream);
+            S9apiUtils.serialize(runtime, doc, serializer);
+            stream.close();
         } catch (IOException ioe) {
             throw new XProcException("Failed to serialize as XML: " + doc, ioe);
         } catch (SaxonApiException sae) {
             throw new XProcException("Failed to serialize as XML: " + doc, sae);
-        } 
+        }
     }
 
     private static void storeBinary(XdmNode doc, OutputStream stream) {
         try {
-            try {
-                byte[] decoded = Base64.decode(doc.getStringValue());
-                stream.write(decoded);
-            } finally {
-                stream.close();
-            }
+            byte[] decoded = Base64.decode(doc.getStringValue());
+            stream.write(decoded);
+            stream.close();
         } catch (IOException ioe) {
             throw new XProcException(ioe);
         }
@@ -121,17 +115,11 @@ public class NodeToBytes {
 
     private static void storeJSON(XdmNode doc, OutputStream stream) {
         try {
-            try {
-                PrintWriter writer = new PrintWriter(stream);
-                String json = XMLtoJSON.convert(doc);
-                writer.print(json);
-            } finally {
-                // Closing both might not be safe, depending on the concrete
-                // implementation of OutputStream. Omitting the call to 
-                // PrintWriter.close is safe, however.
-//                            writer.close();
-                stream.close();
-            }
+            PrintWriter writer = new PrintWriter(stream);
+            String json = XMLtoJSON.convert(doc);
+            writer.print(json);
+            writer.close();
+            stream.close();
         } catch (IOException ioe) {
             throw XProcException.stepError(50, ioe);
         }

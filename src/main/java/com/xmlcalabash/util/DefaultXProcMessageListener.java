@@ -11,8 +11,7 @@ import net.sf.saxon.trans.XPathException;
 import javax.xml.transform.SourceLocator;
 import javax.xml.transform.TransformerException;
 import java.net.URI;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.logging.Logger;
 
 /**
  * Created by IntelliJ IDEA.
@@ -22,24 +21,21 @@ import org.slf4j.LoggerFactory;
  * To change this template use File | Settings | File Templates.
  */
 public class DefaultXProcMessageListener implements XProcMessageListener {
-    private static Logger defaultLogger = LoggerFactory.getLogger(DefaultXProcMessageListener.class);
+    private static Logger defaultLogger = Logger.getLogger("com.xmlcalabash");
     private Logger log = defaultLogger;
 
     public void error(XProcRunnable step, XdmNode node, String message, QName code) {
         if (step != null) {
-            log = LoggerFactory.getLogger(step.getClass());
+            log = Logger.getLogger(step.getClass().getName());
         } else {
             log = defaultLogger;
         }
 
-        log.error(message(step, node, message, code));
+        log.severe(message(step, node, message, code));
     }
 
     public void error(Throwable exception) {
-        log.error(exceptionMessage(exception) + exception.getMessage());
-        if (exception.getCause() != null) {
-            log.error("    cause: " + exceptionMessage(exception.getCause()) + exception.getCause().getMessage());
-        }
+        log.severe(exceptionMessage(exception) + exception.getMessage());
     }
 
     private String exceptionMessage(Throwable exception) {
@@ -107,20 +103,20 @@ public class DefaultXProcMessageListener implements XProcMessageListener {
 
     public void warning(XProcRunnable step, XdmNode node, String message) {
         if (step != null) {
-            log = LoggerFactory.getLogger(step.getClass());
+            log = Logger.getLogger(step.getClass().getName());
         } else {
             log = defaultLogger;
         }
-        log.warn(message(step, node, message));
+        log.warning(message(step, node, message));
     }
 
     public void warning(Throwable exception) {
-        log.warn(exceptionMessage(exception) + exception.getMessage());
+        log.warning(exceptionMessage(exception) + exception.getMessage());
     }
 
     public void info(XProcRunnable step, XdmNode node, String message) {
         if (step != null) {
-            log = LoggerFactory.getLogger(step.getClass());
+            log = Logger.getLogger(step.getClass().getName());
         } else {
             log = defaultLogger;
         }
@@ -129,29 +125,29 @@ public class DefaultXProcMessageListener implements XProcMessageListener {
 
     public void fine(XProcRunnable step, XdmNode node, String message) {
         if (step != null) {
-            log = LoggerFactory.getLogger(step.getClass());
+            log = Logger.getLogger(step.getClass().getName());
         } else {
             log = defaultLogger;
         }
-        log.debug(message(step, node, message));
+        log.fine(message(step, node, message));
     }
 
     public void finer(XProcRunnable step, XdmNode node, String message) {
         if (step != null) {
-            log = LoggerFactory.getLogger(step.getClass());
+            log = Logger.getLogger(step.getClass().getName());
         } else {
             log = defaultLogger;
         }
-        log.trace(message(step, node, message));
+        log.finer(message(step, node, message));
     }
 
     public void finest(XProcRunnable step, XdmNode node, String message) {
         if (step != null) {
-            log = LoggerFactory.getLogger(step.getClass());
+            log = Logger.getLogger(step.getClass().getName());
         } else {
             log = defaultLogger;
         }
-        log.trace(message(step, node, message));
+        log.finest(message(step, node, message));
     }
 
     private String message(XProcRunnable step, XdmNode node, String message) {

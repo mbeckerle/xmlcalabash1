@@ -25,8 +25,6 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.xmlcalabash.core.XMLCalabash;
-import com.xmlcalabash.util.MessageFormatter;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
 
@@ -40,18 +38,11 @@ import com.xmlcalabash.model.RuntimeValue;
 import com.xmlcalabash.runtime.XAtomicStep;
 import com.xmlcalabash.util.TreeWriter;
 import com.xmlcalabash.util.URIUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  *
  * @author ndw
  */
-
-@XMLCalabash(
-        name = "p:directory-list",
-        type = "{http://www.w3.org/ns/xproc}directory-list")
-
 public class DirectoryList extends DefaultStep {
     private static final QName _name = new QName("", "name");
     private static final QName _path = new QName("", "path");
@@ -97,17 +88,17 @@ public class DirectoryList extends DefaultStep {
             path = path + "/";
         }
 
-        logger.trace(MessageFormatter.nodeMessage(step.getNode(), "path: " + path));
+        runtime.finer(null, step.getNode(), "path: " + path);
 
         RuntimeValue value = getOption(_include_filter);
         if (value != null) {
             inclFilter = value.getString();
-            logger.trace(MessageFormatter.nodeMessage(step.getNode(), "include: " + inclFilter));
+            runtime.finer(null, step.getNode(), "include: " + inclFilter);
         }
         value = getOption(_exclude_filter);
         if (value != null) {
             exclFilter = value.getString();
-            logger.trace(MessageFormatter.nodeMessage(step.getNode(), "exclude: " + exclFilter));
+            runtime.finer(null, step.getNode(), "exclude: " + exclFilter);
         }
 
         final boolean showExcluded = "true".equals(step.getExtensionAttribute(px_show_excluded));
@@ -127,16 +118,16 @@ public class DirectoryList extends DefaultStep {
                     boolean use = true;
                     String filename = getName(id);
 
-                    logger.trace(MessageFormatter.nodeMessage(step.getNode(), "name: " + filename));
+                    runtime.finer(null, step.getNode(), "name: " + filename);
 
                     if (inclFilter != null) {
                         use = filename.matches(inclFilter);
-                        logger.trace(MessageFormatter.nodeMessage(step.getNode(), "include: " + use));
+                        runtime.finer(null, step.getNode(), "include: " + use);
                     }
 
                     if (exclFilter != null) {
                         use = use && !filename.matches(exclFilter);
-                        logger.trace(MessageFormatter.nodeMessage(step.getNode(), "exclude: " + !use));
+                        runtime.finer(null, step.getNode(), "exclude: " + !use);
                     }
 
                     if (use) {
@@ -144,16 +135,16 @@ public class DirectoryList extends DefaultStep {
                             tree.addStartElement(c_directory);
                             tree.addAttribute(_name, filename);
                             tree.addEndElement();
-                            logger.trace(MessageFormatter.nodeMessage(step.getNode(), "Including directory: " + filename));
+                            finest(step.getNode(), "Including directory: " + filename);
                         } else {
                             tree.addStartElement(c_file);
                             tree.addAttribute(_name, filename);
                             tree.addEndElement();
-                            logger.trace(MessageFormatter.nodeMessage(step.getNode(), "Including file: " + filename));
+                            finest(step.getNode(), "Including file: " + filename);
                         }
                     } else if (showExcluded) {
                         tree.addComment(" excluded: " + filename + " ");
-                        logger.trace(MessageFormatter.nodeMessage(step.getNode(), "Excluding: " + filename));
+                        finest(step.getNode(), "Excluding: " + filename);
                     }
                 }
             });

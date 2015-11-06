@@ -31,9 +31,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.File;
 
-import com.xmlcalabash.core.XMLCalabash;
 import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.util.MessageFormatter;
 import com.xmlcalabash.util.TreeWriter;
 import com.xmlcalabash.io.ReadablePipe;
 import com.xmlcalabash.io.WritablePipe;
@@ -59,11 +57,6 @@ import net.sf.saxon.s9api.XdmNode;
  *
  * @author ndw
  */
-
-@XMLCalabash(
-        name = "p:exec",
-        type = "{http://www.w3.org/ns/xproc}exec")
-
 public class Exec extends DefaultStep {
     private static final QName c_result = new QName("c", XProcConstants.NS_XPROC_STEP, "result");
     private static final QName c_line = new QName("c", XProcConstants.NS_XPROC_STEP, "line");
@@ -194,7 +187,7 @@ public class Exec extends DefaultStep {
                 builder.directory(new File(cwd));
             }
 
-            logger.trace(MessageFormatter.nodeMessage(step.getNode(), "Exec: " + showCmd));
+            fine(step.getNode(), "Exec: " + showCmd);
 
             Process process = builder.start();
 
@@ -202,37 +195,35 @@ public class Exec extends DefaultStep {
                 XdmNode srcDoc = source.read();
 
                 if (source.moreDocuments()) {
-                    throw XProcException.dynamicError(6, "Reading source on " + getStep().getName());
+                    throw XProcException.dynamicError(6);
                 }
 
                 OutputStream os = process.getOutputStream();
 
-                try {
-                    Serializer serializer = makeSerializer();
+                Serializer serializer = makeSerializer();
 
-                    // FIXME: there must be a better way to print text descendants
-                    String queryexpr = null;
-                    if (sourceIsXML) {
-                        queryexpr = ".";
-                    } else {
-                        queryexpr = "//text()";
-                        serializer.setOutputProperty(Serializer.Property.METHOD, "text");
-                        serializer.setOutputProperty(Serializer.Property.OMIT_XML_DECLARATION, "yes");
-                    }
-
-                    Processor qtproc = runtime.getProcessor();
-                    XQueryCompiler xqcomp = qtproc.newXQueryCompiler();
-                    xqcomp.setModuleURIResolver(runtime.getResolver());
-                    XQueryExecutable xqexec = xqcomp.compile(queryexpr);
-                    XQueryEvaluator xqeval = xqexec.load();
-                    xqeval.setContextItem(srcDoc);
-
-                    serializer.setOutputStream(os);
-                    xqeval.setDestination(serializer);
-                    xqeval.run();
-                } finally {
-                    os.close();
+                // FIXME: there must be a better way to print text descendants
+                String queryexpr = null;
+                if (sourceIsXML) {
+                    queryexpr = ".";
+                } else {
+                    queryexpr = "//text()";
+                    serializer.setOutputProperty(Serializer.Property.METHOD, "text");
+                    serializer.setOutputProperty(Serializer.Property.OMIT_XML_DECLARATION, "yes");
                 }
+
+                Processor qtproc = runtime.getProcessor();
+                XQueryCompiler xqcomp = qtproc.newXQueryCompiler();
+                xqcomp.setModuleURIResolver(runtime.getResolver());
+                XQueryExecutable xqexec = xqcomp.compile(queryexpr);
+                XQueryEvaluator xqeval = xqexec.load();
+                xqeval.setContextItem(srcDoc);
+
+                serializer.setOutputStream(os);
+                xqeval.setDestination(serializer);
+                xqeval.run();
+
+                os.close();
             } else {
                 OutputStream os = process.getOutputStream();
                 os.close();

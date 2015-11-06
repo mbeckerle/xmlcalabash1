@@ -26,8 +26,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.logging.Logger;
 
-import com.xmlcalabash.util.*;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmNode;
@@ -39,20 +39,22 @@ import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.io.DataStore.DataReader;
 import com.xmlcalabash.model.Step;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.xmlcalabash.util.Base64;
+import com.xmlcalabash.util.HttpUtils;
+import com.xmlcalabash.util.JSONtoXML;
+import com.xmlcalabash.util.TreeWriter;
 
 /**
  *
  * @author ndw
  */
 public class ReadableData implements ReadablePipe {
+    protected String contentType = null;
+    private Logger logger = Logger.getLogger(this.getClass().getName());
     public static final QName _contentType = new QName("","content-type");
     public static final QName c_contentType = new QName("c",XProcConstants.NS_XPROC_STEP, "content-type");
     public static final QName _encoding = new QName("","encoding");
     public static final QName c_encoding = new QName("c",XProcConstants.NS_XPROC_STEP, "encoding");
-    private String contentType = null;
-    private Logger logger = LoggerFactory.getLogger(ReadablePipe.class);
     private int pos = 0;
     private QName wrapper = null;
     private String uri = null;
@@ -93,17 +95,10 @@ public class ReadableData implements ReadablePipe {
 		try {
 			final String userContentType = parseContentType(contentType);
 			if (uri == null) {
-			    try {
-			        read(userContentType, null, inputStream, getContentType());
-			    } finally {
-			        // This is the only case where the inputStream should be 
-			        // closed.
-			        inputStream.close();
-			    }
+				read(userContentType, null, inputStream, getContentType());
 			} else if ("-".equals(uri)) {
 				read(userContentType, getDataUri("-"), System.in,
 						getContentType());
-				// No need to close the input stream here, since it's System.in.
 			} else {
 				String accept = "application/json, text/json, text/*, */*";
 				if (userContentType != null) {
@@ -117,36 +112,20 @@ public class ReadableData implements ReadablePipe {
 								serverContentType);
 					}
 				});
-				// Also no need to close the input stream here, since  
-				// DataStore implementations close the input stream when
-				// necessary.
 			}
 		} catch (IOException ioe) {
             throw new XProcException(XProcConstants.dynamicError(29), ioe);
+        	
         }
         return documents;
     }
 
-    
-    // This method does NOT close the InputStream; it relies on the caller to close
-    // the InputStream, as appropriate.
 	private void read(String userContentType, URI dataURI,
 			InputStream stream, String serverContentType)
 			throws IOException {
 		this.serverContentType = serverContentType;
 
-        contentType = serverContentType;
-
-        // If the input is - or a file: URI, assume the user provided content type
-        // and charset are correct.
-        if ((uri != null) && ("-".equals(uri) || "file".equals(dataURI.getScheme()))) {
-            if (userContentType != null) {
-                contentType = userContentType;
-            }
-        }
-
-        String charset = parseCharset(contentType);
-
+        String userCharset = parseCharset(contentType);
         TreeWriter tree = new TreeWriter(runtime);
         tree.startDocument(dataURI);
 		if (contentType != null && "content/unknown".equals(serverContentType)) {
@@ -164,6 +143,17 @@ public class ReadableData implements ReadablePipe {
 		    serverContentType = serverBaseContentType + "; charset=\"" + serverCharset + "\"";
 		}
 
+		// If the user specified a charset and the server did not and it's a file: URI,
+		// assume the user knows best.
+		// FIXME: provide some way to override this!!!
+
+		String charset = serverCharset;
+		if ((uri != null) && ("-".equals(uri) || "file".equals(dataURI.getScheme()))
+		        && serverCharset == null
+		        && serverBaseContentType.equals(userContentType)) {
+		    charset = userCharset;
+		}
+
 		if (runtime.transparentJSON() && HttpUtils.jsonContentType(contentType)) {
 		    if (charset == null) {
 		        // FIXME: Is this right? I think it is...
@@ -176,27 +166,27 @@ public class ReadableData implements ReadablePipe {
 		} else {
 		    tree.addStartElement(wrapper);
 		    if (XProcConstants.c_data.equals(wrapper)) {
-		        if ("content/unknown".equals(contentType)) {
+		        if ("content/unknown".equals(serverContentType)) {
 		            tree.addAttribute(_contentType, "application/octet-stream");
 		        } else {
-		            tree.addAttribute(_contentType, contentType);
+		            tree.addAttribute(_contentType, serverContentType);
 		        }
-		        if (!isText(contentType, charset)) {
+		        if (!isText(serverContentType, charset)) {
 		            tree.addAttribute(_encoding, "base64");
 		        }
 		    } else {
-		        if ("content/unknown".equals(contentType)) {
+		        if ("content/unknown".equals(serverContentType)) {
 		            tree.addAttribute(c_contentType, "application/octet-stream");
 		        } else {
-		            tree.addAttribute(c_contentType, contentType);
+		            tree.addAttribute(c_contentType, serverContentType);
 		        }
-		        if (!isText(contentType, charset)) {
+		        if (!isText(serverContentType, charset)) {
 		            tree.addAttribute(c_encoding, "base64");
 		        }
 		    }
 		    tree.startContent();
 
-		    if (isText(contentType, charset)) {
+		    if (isText(serverContentType, charset)) {
 		        BufferedReader bufread;
 		        if (charset == null) {
 		            // FIXME: Is this right? I think it is...
@@ -263,10 +253,6 @@ public class ReadableData implements ReadablePipe {
         reader = step;
     }
 
-    public void setNames(String stepName, String portName) {
-        // nop;
-    }
-
     public boolean moreDocuments() {
         DocumentSequence docs = ensureDocuments();
         return pos < docs.size();
@@ -289,8 +275,7 @@ public class ReadableData implements ReadablePipe {
         DocumentSequence docs = ensureDocuments();
         XdmNode doc = docs.get(pos++);
         if (reader != null) {
-            logger.trace(MessageFormatter.nodeMessage(reader.getNode(),
-                    reader.getName() + " read '" + (doc == null ? "null" : doc.getBaseURI()) + "' from " + this));
+            runtime.finest(null, reader.getNode(), reader.getName() + " read '" + (doc == null ? "null" : doc.getBaseURI()) + "' from " + this);
         }
         return doc;
     }

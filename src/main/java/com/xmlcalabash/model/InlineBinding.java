@@ -25,8 +25,6 @@ import java.util.HashSet;
 import net.sf.saxon.s9api.XdmNode;
 import net.sf.saxon.s9api.XdmValue;
 import com.xmlcalabash.core.XProcRuntime;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  *
@@ -66,6 +64,6 @@ public class InlineBinding extends Binding {
             indent += " ";
         }
 
-        logger.trace(indent + "inline binding");
+        System.err.println(indent + "inline binding");
     }
 }

@@ -19,7 +19,6 @@
 
 package com.xmlcalabash.library;
 
-import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Hashtable;
@@ -33,14 +32,12 @@ import javax.xml.transform.dom.DOMResult;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.sax.SAXSource;
 
-import com.xmlcalabash.core.XMLCalabash;
 import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.core.XProcConstants;
 import com.xmlcalabash.io.ReadablePipe;
 import com.xmlcalabash.io.WritablePipe;
 import com.xmlcalabash.model.RuntimeValue;
-import com.xmlcalabash.util.MessageFormatter;
 import com.xmlcalabash.util.TreeWriter;
 import com.xmlcalabash.util.CollectionResolver;
 import com.xmlcalabash.util.S9apiUtils;
@@ -50,7 +47,6 @@ import net.sf.saxon.lib.OutputURIResolver;
 import net.sf.saxon.lib.UnparsedTextURIResolver;
 import net.sf.saxon.s9api.DocumentBuilder;
 import net.sf.saxon.s9api.QName;
-import net.sf.saxon.s9api.Serializer;
 import net.sf.saxon.s9api.XdmDestination;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmNode;
@@ -69,18 +65,11 @@ import org.xml.sax.InputSource;
  *
  * @author ndw
  */
-
-@XMLCalabash(
-        name = "p:xslt",
-        type = "{http://www.w3.org/ns/xproc}xslt")
-
 public class XSLT extends DefaultStep {
     private static final QName _initial_mode = new QName("", "initial-mode");
     private static final QName _template_name = new QName("", "template-name");
     private static final QName _output_base_uri = new QName("", "output-base-uri");
     private static final QName _version = new QName("", "version");
-    private static final QName _content_type = new QName("content-type");
-    private static final QName cx_decode = new QName("cx", XProcConstants.NS_CALABASH_EX, "decode");
     private ReadablePipe sourcePipe = null;
     private ReadablePipe stylesheetPipe = null;
     private WritablePipe resultPipe = null;
@@ -155,6 +144,10 @@ public class XSLT extends DefaultStep {
             version = getOption(_version).getString();
         }
         
+        if ("3.0".equals(version) && Configuration.softwareEdition.toLowerCase().equals("he")) {
+            throw XProcException.stepError(38, "XSLT version '" + version + "' is not supported (Saxon PE or EE processor required).");
+        }
+        
         // We used to check if the XSLT version was supported, but I've removed that check.
         // If it's not supported by Saxon, we'll get an error from Saxon. Otherwise, we'll
         // get the results we get.
@@ -211,7 +204,7 @@ public class XSLT extends DefaultStep {
                 if (runtime.getAllowGeneralExpressions()) {
                     transformer.setParameter(name, v.getValue());
                 } else {
-                    transformer.setParameter(name, v.getUntypedAtomic(runtime));
+                    transformer.setParameter(name, new XdmAtomicValue(v.getString()));
                 }
             }
 
@@ -258,42 +251,7 @@ public class XSLT extends DefaultStep {
                 String sysId = document.getBaseURI().toASCIIString();
                 xformed.getUnderlyingNode().setSystemId(sysId);
             }
-
-            // If the document isn't well-formed XML, encode it as text
-            try {
-                S9apiUtils.assertDocument(xformed);
-                resultPipe.write(xformed);
-            } catch (XProcException e) {
-                // If the document isn't well-formed XML, encode it as text
-                if (runtime.getAllowTextResults()) {
-                    // Document is apparently not well-formed XML.
-                    TreeWriter tree = new TreeWriter(runtime);
-                    tree.startDocument(xformed.getBaseURI());
-                    tree.addStartElement(XProcConstants.c_result);
-                    tree.addAttribute(_content_type, "text/plain");
-                    tree.addAttribute(cx_decode,"true");
-                    tree.startContent();
-
-                    // Serialize the content as text so that we don't wind up with encoded XML characters
-                    Serializer serializer = makeSerializer();
-                    serializer.setOutputProperty(Serializer.Property.METHOD, "text");
-
-                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                    serializer.setOutputStream(baos);
-                    try {
-                        S9apiUtils.serialize(runtime, xformed, serializer);
-                    } catch (SaxonApiException e2) {
-                        throw new XProcException(e2);
-                    }
-
-                    tree.addText(baos.toString());
-                    tree.addEndElement();
-                    tree.endDocument();
-                    resultPipe.write(tree.getResult());
-                } else {
-                    throw new XProcException(step.getStep(), "p:xslt returned non-XML result", e.getCause());
-                }
-            }
+            resultPipe.write(xformed);
         }
     }
     
@@ -355,7 +313,7 @@ public class XSLT extends DefaultStep {
                 throw new XProcException(use);
             }
 
-            logger.trace(MessageFormatter.nodeMessage(step.getNode(), "XSLT secondary result document: " + baseURI));
+            finest(step.getNode(), "XSLT secondary result document: " + baseURI);
 
             try {
                 XdmDestination xdmResult = new XdmDestination();
@@ -372,28 +330,7 @@ public class XSLT extends DefaultStep {
             String href = result.getSystemId();
             XdmDestination xdmResult = secondaryResults.get(href);
             XdmNode doc = xdmResult.getXdmNode();
-
-            try {
-                S9apiUtils.assertDocument(doc);
-                secondaryPipe.write(doc);
-            } catch (XProcException e) {
-                // If the document isn't well-formed XML, encode it as text
-                if (runtime.getAllowTextResults()) {
-                    // Document is apparently not well-formed XML.
-                    TreeWriter tree = new TreeWriter(runtime);
-                    tree.startDocument(doc.getBaseURI());
-                    tree.addStartElement(XProcConstants.c_result);
-                    tree.addAttribute(_content_type, "text/plain");
-                    tree.addAttribute(cx_decode, "true");
-                    tree.startContent();
-                    tree.addText(doc.toString());
-                    tree.addEndElement();
-                    tree.endDocument();
-                    secondaryPipe.write(tree.getResult());
-                } else {
-                    throw new XProcException(step.getStep(), "p:xslt returned non-XML secondary result", e.getCause());
-                }
-            }
+            secondaryPipe.write(doc);
         }
     }
 
